@@ -115,9 +115,11 @@ mod prelude {
     pub(crate) struct PrintOnPanic<F: Fn() -> String>(pub F);
     impl<F: Fn() -> String> Drop for PrintOnPanic<F> {
         fn drop(&mut self) {
+            /*
             if ::std::thread::panicking() {
                 println!("{}", (self.0)());
             }
+            */
         }
     }
 
@@ -164,7 +166,7 @@ struct CraneliftCodegenBackend;
 impl CodegenBackend for CraneliftCodegenBackend {
     fn init(&self, sess: &Session) {
         if sess.lto() != rustc_session::config::Lto::No {
-            sess.warn("LTO is not supported. You may get a linker error.");
+            //sess.warn("LTO is not supported. You may get a linker error.");
         }
     }
 
