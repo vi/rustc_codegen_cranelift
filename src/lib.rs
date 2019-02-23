@@ -49,6 +49,7 @@ mod main_shim;
 mod metadata;
 mod num;
 mod optimize;
+mod panic_debug;
 mod pointer;
 mod pretty_clif;
 mod target_features_whitelist;
@@ -110,20 +111,12 @@ mod prelude {
     pub use crate::cast::*;
     pub use crate::common::*;
     pub use crate::debuginfo::{DebugContext, FunctionDebugContext};
+    pub use crate::panic_debug::PrintOnPanic;
     pub use crate::pointer::Pointer;
     pub use crate::trap::*;
     pub use crate::unimpl::unimpl;
     pub use crate::value_and_place::{CPlace, CPlaceInner, CValue};
     pub use crate::CodegenCx;
-
-    pub struct PrintOnPanic<F: Fn() -> String>(pub F);
-    impl<F: Fn() -> String> Drop for PrintOnPanic<F> {
-        fn drop(&mut self) {
-            if ::std::thread::panicking() {
-                println!("{}", (self.0)());
-            }
-        }
-    }
 }
 
 pub struct CodegenCx<'clif, 'tcx, B: Backend + 'static> {

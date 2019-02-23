@@ -1,0 +1,36 @@
+From 681aa334c5c183538e77c660e5e2d4d0c79fe669 Mon Sep 17 00:00:00 2001
+From: bjorn3 <bjorn3@users.noreply.github.com>
+Date: Sat, 23 Feb 2019 14:55:44 +0100
+Subject: [PATCH] Make suitable for cg_clif tests
+
+---
+ .gitmodules           | 10 ----------
+ 1 files changed, 0 insertions(+), 10 deletions(-)
+
+diff --git a/.gitmodules b/.gitmodules
+index 31db0772cfb..5832ba2578b 100644
+--- a/.gitmodules
++++ b/.gitmodules
+@@ -25,9 +25,6 @@
+ [submodule "src/tools/miri"]
+ 	path = src/tools/miri
+ 	url = https://github.com/rust-lang/miri.git
+-[submodule "src/doc/rust-by-example"]
+-	path = src/doc/rust-by-example
+-	url = https://github.com/rust-lang/rust-by-example.git
+ [submodule "src/stdarch"]
+ 	path = src/stdarch
+ 	url = https://github.com/rust-lang/stdarch.git
+@@ -37,10 +34,6 @@
+ [submodule "src/doc/edition-guide"]
+ 	path = src/doc/edition-guide
+ 	url = https://github.com/rust-lang/edition-guide.git
+-[submodule "src/llvm-project"]
+-	path = src/llvm-project
+-	url = https://github.com/rust-lang/llvm-project.git
+-	branch = rustc/9.0-2019-09-19
+ [submodule "src/doc/embedded-book"]
+ 	path = src/doc/embedded-book
+ 	url = https://github.com/rust-embedded/book.git
+--
+2.11.0

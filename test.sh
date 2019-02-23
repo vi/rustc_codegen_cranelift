@@ -39,7 +39,7 @@ $RUSTC example/mini_core_hello_world.rs --crate-name mini_core_hello_world --cra
 # (echo "break set -n main"; echo "run"; sleep 1; echo "si -c 10"; sleep 1; echo "frame variable") | lldb -- ./target/out/mini_core_hello_world abc bcd
 
 echo "[AOT] arbitrary_self_types_pointers_and_wrappers"
-$RUSTC example/arbitrary_self_types_pointers_and_wrappers.rs --crate-name arbitrary_self_types_pointers_and_wrappers --crate-type bin
+$RUSTC example/arbitrary_self_types_pointers_and_wrappers.rs --crate-type bin -Cpanic=abort
 ./target/out/arbitrary_self_types_pointers_and_wrappers
 
 echo "[BUILD] sysroot"
@@ -67,46 +67,42 @@ $RUSTC example/mod_bench.rs --crate-type bin
 #echo "[BUILD] sysroot in release mode"
 #./build_sysroot/build_sysroot.sh --release
 
-pushd simple-raytracer
-echo "[BENCH COMPILE] ebobby/simple-raytracer"
-hyperfine --runs ${RUN_RUNS:-10} --warmup 1 --prepare "rm -r target/*/debug || true" \
-    "RUSTFLAGS='' cargo build --target $TARGET_TRIPLE" \
-    "../cargo.sh build"
+$RUSTC example/std_example.rs --crate-type bin
+./target/out/std_example
 
-echo "[BENCH RUN] ebobby/simple-raytracer"
-cp ./target/*/debug/main ./raytracer_cg_clif
-hyperfine --runs ${RUN_RUNS:-10} ./raytracer_cg_llvm ./raytracer_cg_clif
-popd
+git clone https://github.com/rust-lang/rust.git --depth=1 || true
+cd rust
+#git fetch
+#git checkout -f $(rustc -V | cut -d' ' -f3 | tr -d '(')
+export RUSTFLAGS=
 
-pushd build_sysroot/sysroot_src/src/libcore/tests
-rm -r ./target || true
-../../../../../cargo.sh test
-popd
+#git apply ../rust_lang.patch
 
-pushd regex
-echo "[TEST] rust-lang/regex example shootout-regex-dna"
-../cargo.sh clean
-# Make sure `[codegen mono items] start` doesn't poison the diff
-../cargo.sh build --example shootout-regex-dna
-cat examples/regexdna-input.txt | ../cargo.sh run --example shootout-regex-dna > res.txt
-diff -u res.txt examples/regexdna-output.txt
 
-echo "[TEST] rust-lang/regex tests"
-../cargo.sh test --tests -- --exclude-should-panic --test-threads 1 -Zunstable-options
-popd
+rm config.toml || true
 
-echo
-echo "[BENCH COMPILE] mod_bench"
+cat > config.toml <<EOF
+[rust]
+codegen-backends = []
+deny-warnings = false
+[build]
+local-rebuild = true
+rustc = "$HOME/.rustup/toolchains/nightly-$TARGET_TRIPLE/bin/rustc"
+EOF
 
-COMPILE_MOD_BENCH_INLINE="$RUSTC example/mod_bench.rs --crate-type bin -Zmir-opt-level=3 -O --crate-name mod_bench_inline"
-COMPILE_MOD_BENCH_LLVM_0="rustc example/mod_bench.rs --crate-type bin -Copt-level=0 -o target/out/mod_bench_llvm_0 -Cpanic=abort"
-COMPILE_MOD_BENCH_LLVM_1="rustc example/mod_bench.rs --crate-type bin -Copt-level=1 -o target/out/mod_bench_llvm_1 -Cpanic=abort"
-COMPILE_MOD_BENCH_LLVM_2="rustc example/mod_bench.rs --crate-type bin -Copt-level=2 -o target/out/mod_bench_llvm_2 -Cpanic=abort"
-COMPILE_MOD_BENCH_LLVM_3="rustc example/mod_bench.rs --crate-type bin -Copt-level=3 -o target/out/mod_bench_llvm_3 -Cpanic=abort"
+git checkout $(rustc -V | cut -d' ' -f3 | tr -d '(') src/test
+rm -r src/test/ui/{asm-*,abi*,extern/,panic-runtime/,panics/,unsized-locals/,proc-macro/,threads-sendsync/,thinlto/,simd*,borrowck/,test*,*lto*.rs} || true
+for test in $(rg --files-with-matches "asm!|catch_unwind|should_panic|thread|lto" src/test/ui); do
+  rm $test
+done
+rm src/test/ui/consts/const-size_of-cycle.rs || true # Error file path difference
+rm src/test/ui/impl-trait/impl-generic-mismatch.rs || true # ^
+rm src/test/ui/type_length_limit.rs || true
+rm src/test/ui/issues/issue-50993.rs || true # Target `thumbv7em-none-eabihf` is not supported
+rm src/test/ui/macros/same-sequence-span.rs || true # Proc macro .rustc section not found?
+rm src/test/ui/suggestions/issue-61963.rs || true # ^
 
-# Use 100 runs, because a single compilations doesn't take more than ~150ms, so it isn't very slow
-hyperfine --runs ${COMPILE_RUNS:-100} "$COMPILE_MOD_BENCH_INLINE" "$COMPILE_MOD_BENCH_LLVM_0" "$COMPILE_MOD_BENCH_LLVM_1" "$COMPILE_MOD_BENCH_LLVM_2" "$COMPILE_MOD_BENCH_LLVM_3"
+RUSTC_ARGS="-Zpanic-abort-tests -Zcodegen-backend="$(pwd)"/../target/"$CHANNEL"/librustc_codegen_cranelift."$dylib_ext" --sysroot "$(pwd)"/../build_sysroot/sysroot -Cpanic=abort"
 
-echo
-echo "[BENCH RUN] mod_bench"
-hyperfine --runs ${RUN_RUNS:-10} ./target/out/mod_bench{,_inline} ./target/out/mod_bench_llvm_*
+echo "[TEST] rustc test suite"
+./x.py test --stage 0 src/test/ui/ --rustc-args "$RUSTC_ARGS" 2>&1 | tee log.txt

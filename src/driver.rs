@@ -329,6 +329,7 @@ fn trans_mono_item<'clif, 'tcx, B: Backend + 'static>(
             let _inst_guard =
                 PrintOnPanic(|| format!("{:?} {}", inst, tcx.symbol_name(inst).name.as_str()));
             debug_assert!(!inst.substs.needs_infer());
+            /*
             let _mir_guard = PrintOnPanic(|| {
                 match inst.def {
                     InstanceDef::Item(_)
@@ -349,23 +350,22 @@ fn trans_mono_item<'clif, 'tcx, B: Backend + 'static>(
                     }
                 }
             });
+            */
 
             crate::base::trans_fn(cx, inst, linkage);
         }
         MonoItem::Static(def_id) => {
             crate::constant::codegen_static(&mut cx.constants_cx, def_id);
         }
-        MonoItem::GlobalAsm(node_id) => tcx
-            .sess
-            .fatal(&format!("Unimplemented global asm mono item {:?}", node_id)),
+        MonoItem::GlobalAsm(node_id) => unimpl!("Unimplemented global asm mono item {:?}", node_id),
     }
 }
 
 fn time<R>(name: &str, f: impl FnOnce() -> R) -> R {
-    println!("[{}] start", name);
+    //println!("[{}] start", name);
     let before = std::time::Instant::now();
     let res = f();
     let after = std::time::Instant::now();
-    println!("[{}] end time: {:?}", name, after - before);
+    //println!("[{}] end time: {:?}", name, after - before);
     res
 }
