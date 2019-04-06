@@ -49,8 +49,8 @@ $RUSTC example/std_example.rs --crate-type bin
 
 git clone https://github.com/rust-lang/rust.git --depth=1 || true
 cd rust
-#git checkout -- .
-#git pull
+git checkout -- .
+git pull
 export RUSTFLAGS=
 
 cat > the_patch.patch <<EOF
@@ -67,23 +67,20 @@ diff --git a/.gitmodules b/.gitmodules
 index b75e312d..aef8bc14 100644
 --- a/.gitmodules
 +++ b/.gitmodules
-@@ -25,12 +25,6 @@
+@@ -25,9 +25,6 @@
  [submodule "src/tools/miri"]
  	path = src/tools/miri
  	url = https://github.com/rust-lang/miri.git
 -[submodule "src/doc/rust-by-example"]
 -	path = src/doc/rust-by-example
 -	url = https://github.com/rust-lang/rust-by-example.git
--[submodule "src/llvm-emscripten"]
--	path = src/llvm-emscripten
--	url = https://github.com/rust-lang/llvm.git
  [submodule "src/stdarch"]
  	path = src/stdarch
  	url = https://github.com/rust-lang/stdarch.git
 @@ -40,10 +34,6 @@
  [submodule "src/doc/edition-guide"]
  	path = src/doc/edition-guide
- 	url = https://github.com/rust-lang-nursery/edition-guide.git
+ 	url = https://github.com/rust-lang/edition-guide.git
 -[submodule "src/llvm-project"]
 -	path = src/llvm-project
 -	url = https://github.com/rust-lang/llvm-project.git
