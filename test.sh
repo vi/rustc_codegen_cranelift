@@ -66,16 +66,14 @@ local-rebuild = true
 rustc = "$HOME/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/bin/rustc"
 EOF
 
-rm -r src/test/run-pass/{asm-*,abi-*,extern/,panic-runtime/,panics/,unsized-locals/,proc-macro/,threads-sendsync/,thinlto/,simd/} || true
-#for test in src/test/run-pass/*.rs src/test/run-pass/**/*.rs; do
+#rm -r src/test/ui/{asm-*,abi-*,extern/,panic-runtime/,panics/,unsized-locals/,proc-macro/,threads-sendsync/,thinlto/,simd/} || true
+#for test in src/test/ui/*.rs src/test/ui/**/*.rs; do
 #    if grep "ignore-emscripten" $test 2>&1 >/dev/null; then
 #        rm $test
 #    fi
 #done
 
-echo "[TEST] run-pass"
+RUSTC_ARGS="-Zcodegen-backend="$(pwd)"/../target/"$CHANNEL"/librustc_codegen_cranelift."$dylib_ext" --sysroot "$(pwd)"/../build_sysroot/sysroot -Cpanic=abort"
 
-#rm -r build/x86_64-unknown-linux-gnu/test || true
-./x.py test --stage 0 src/test/ui/ \
-    --rustc-args "-Zcodegen-backend=$(pwd)/../target/"$CHANNEL"/librustc_codegen_cranelift."$dylib_ext" --sysroot $(pwd)/../build_sysroot/sysroot -Cpanic=abort" \
-    2>&1 | tee log.txt
+echo "[TEST] rustc test suite"
+./x.py test --stage 0 src/test/ui/ --rustc-args "$RUSTC_ARGS" 2>&1 | tee log.txt
