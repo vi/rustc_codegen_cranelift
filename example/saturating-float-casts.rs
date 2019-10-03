@@ -1,137 +1,92 @@
-// Copied from https://github.com/rust-lang/rust/blob/f3c8eba643a815d720e7f20699b3dca144c845c4/src/test/ui/numbers-arithmetic/saturating-float-casts.rs
+#![feature(compiler_builtins_lib)]
 
-// run-pass
-// Tests saturating float->int casts. See u128-as-f32.rs for the opposite direction.
-// compile-flags: -Z saturating-float-casts
+extern crate compiler_builtins;
 
-#![feature(test, stmt_expr_attributes)]
-#![deny(overflowing_literals)]
-extern crate test;
+use std::f32;
 
-use std::{f32, f64};
-use std::{u8, i8, u16, i16, u32, i32, u64, i64};
-#[cfg(not(target_os="emscripten"))]
-use std::{u128, i128};
-use test::black_box;
+use compiler_builtins::float::Float;
+use compiler_builtins::int::Int;
 
-macro_rules! test {
-    ($val:expr, $src_ty:ident -> $dest_ty:ident, $expected:expr) => (
-        // black_box disables constant evaluation to test run-time conversions:
-        assert_eq!(black_box::<$src_ty>($val) as $dest_ty, $expected,
-                    "run-time {} -> {}", stringify!($src_ty), stringify!($dest_ty));
-    );
-
-    ($fval:expr, f* -> $ity:ident, $ival:expr) => (
-        test!($fval, f32 -> $ity, $ival);
-        test!($fval, f64 -> $ity, $ival);
-    )
+// cranelift doesn't inline
+fn black_box<T>(a: T) -> T {
+    a
 }
 
-// This macro tests const eval in addition to run-time evaluation.
-// If and when saturating casts are adopted, this macro should be merged with test!() to ensure
-// that run-time and const eval agree on inputs that currently trigger a const eval error.
-macro_rules! test_c {
-    ($val:expr, $src_ty:ident -> $dest_ty:ident, $expected:expr) => ({
-        test!($val, $src_ty -> $dest_ty, $expected);
-        {
-            const X: $src_ty = $val;
-            const Y: $dest_ty = X as $dest_ty;
-            assert_eq!(Y, $expected,
-                        "const eval {} -> {}", stringify!($src_ty), stringify!($dest_ty));
+
+#[derive(PartialEq)]
+enum Sign {
+    Positive,
+    Negative,
+}
+
+macro_rules! float_to_int {
+    ($f:expr, $fty:ty, $ity:ty) => {{
+        let f = $f;
+        let fixint_min = <$ity>::min_value();
+        let fixint_max = <$ity>::max_value();
+        let fixint_bits = <$ity>::BITS as usize;
+        let fixint_unsigned = fixint_min == 0;
+
+        let sign_bit = <$fty>::SIGN_MASK;
+        let significand_bits = <$fty>::SIGNIFICAND_BITS as usize;
+        let exponent_bias = <$fty>::EXPONENT_BIAS as usize;
+        //let exponent_max = <$fty>::exponent_max() as usize;
+
+        // Break a into sign, exponent, significand
+        let a_rep = <$fty>::repr(f);
+        let a_abs = a_rep & !sign_bit;
+
+        // this is used to work around -1 not being available for unsigned
+        let sign = if (a_rep & sign_bit) == 0 {
+            Sign::Positive
+        } else {
+            Sign::Negative
+        };
+        let mut exponent = (a_abs >> significand_bits) as usize;
+        let significand = (a_abs & <$fty>::SIGNIFICAND_MASK) | <$fty>::IMPLICIT_BIT;
+
+        // if < 1 or unsigned & negative
+        if exponent < exponent_bias || fixint_unsigned && sign == Sign::Negative {
+            return 0;
         }
-    });
+        exponent -= exponent_bias;
 
-    ($fval:expr, f* -> $ity:ident, $ival:expr) => (
-        test_c!($fval, f32 -> $ity, $ival);
-        test_c!($fval, f64 -> $ity, $ival);
-    )
+        // If the value is infinity, saturate.
+        // If the value is too large for the integer type, 0.
+        if exponent
+            >= (if fixint_unsigned {
+                fixint_bits
+            } else {
+                fixint_bits - 1
+            })
+        {
+            return if sign == Sign::Positive {
+                fixint_max
+            } else {
+                fixint_min
+            };
+        }
+        // If 0 <= exponent < significand_bits, right shift to get the result.
+        // Otherwise, shift left.
+        // (sign - 1) will never overflow as negative signs are already returned as 0 for unsigned
+        let r = if exponent < significand_bits {
+            (significand >> (significand_bits - exponent)) as $ity
+        } else {
+            (significand as $ity) << (exponent - significand_bits)
+        };
+
+        if sign == Sign::Negative {
+            (!r).wrapping_add(1)
+        } else {
+            r
+        }
+    }};
 }
 
-macro_rules! common_fptoi_tests {
-    ($fty:ident -> $($ity:ident)+) => ({ $(
-        test!($fty::NAN, $fty -> $ity, 0);
-        test!($fty::INFINITY, $fty -> $ity, $ity::MAX);
-        test!($fty::NEG_INFINITY, $fty -> $ity, $ity::MIN);
-        // These two tests are not solely float->int tests, in particular the latter relies on
-        // `u128::MAX as f32` not being UB. But that's okay, since this file tests int->float
-        // as well, the test is just slightly misplaced.
-        test!($ity::MIN as $fty, $fty -> $ity, $ity::MIN);
-        test!($ity::MAX as $fty, $fty -> $ity, $ity::MAX);
-        test_c!(0., $fty -> $ity, 0);
-        test_c!($fty::MIN_POSITIVE, $fty -> $ity, 0);
-        test!(-0.9, $fty -> $ity, 0);
-        test_c!(1., $fty -> $ity, 1);
-        test_c!(42., $fty -> $ity, 42);
-    )+ });
-
-    (f* -> $($ity:ident)+) => ({
-        common_fptoi_tests!(f32 -> $($ity)+);
-        common_fptoi_tests!(f64 -> $($ity)+);
-    })
+fn f32_to_i128(f: f32) -> i128 {
+    float_to_int!(f, f32, i128)
 }
 
-macro_rules! fptoui_tests {
-    ($fty: ident -> $($ity: ident)+) => ({ $(
-        test!(-0., $fty -> $ity, 0);
-        test!(-$fty::MIN_POSITIVE, $fty -> $ity, 0);
-        test!(-0.99999994, $fty -> $ity, 0);
-        test!(-1., $fty -> $ity, 0);
-        test!(-100., $fty -> $ity, 0);
-        test!(#[allow(overflowing_literals)] -1e50, $fty -> $ity, 0);
-        test!(#[allow(overflowing_literals)] -1e130, $fty -> $ity, 0);
-    )+ });
-
-    (f* -> $($ity:ident)+) => ({
-        fptoui_tests!(f32 -> $($ity)+);
-        fptoui_tests!(f64 -> $($ity)+);
-    })
-}
-
-pub fn main() {
-    common_fptoi_tests!(f* -> i8 i16 i32 i64 u8 u16 u32 u64);
-    fptoui_tests!(f* -> u8 u16 u32 u64);
-    // FIXME emscripten does not support i128
-    #[cfg(not(target_os="emscripten"))] {
-        common_fptoi_tests!(f* -> i128 u128);
-        fptoui_tests!(f* -> u128);
-    }
-
-    // The following tests cover edge cases for some integer types.
-
-    // # u8
-    test_c!(254., f* -> u8, 254);
-    test!(256., f* -> u8, 255);
-
-    // # i8
-    test_c!(-127., f* -> i8, -127);
-    test!(-129., f* -> i8, -128);
-    test_c!(126., f* -> i8, 126);
-    test!(128., f* -> i8, 127);
-
-    // # i32
-    // -2147483648. is i32::MIN (exactly)
-    test_c!(-2147483648., f* -> i32, i32::MIN);
-    // 2147483648. is i32::MAX rounded up
-    test!(2147483648., f32 -> i32, 2147483647);
-    // With 24 significand bits, floats with magnitude in [2^30 + 1, 2^31] are rounded to
-    // multiples of 2^7. Therefore, nextDown(round(i32::MAX)) is 2^31 - 128:
-    test_c!(2147483520., f32 -> i32, 2147483520);
-    // Similarly, nextUp(i32::MIN) is i32::MIN + 2^8 and nextDown(i32::MIN) is i32::MIN - 2^7
-    test!(-2147483904., f* -> i32, i32::MIN);
-    test_c!(-2147483520., f* -> i32, -2147483520);
-
-    // # u32
-    // round(MAX) and nextUp(round(MAX))
-    test_c!(4294967040., f* -> u32, 4294967040);
-    test!(4294967296., f* -> u32, 4294967295);
-
-    // # u128
-    #[cfg(not(target_os="emscripten"))]
-    {
-        // float->int:
-        test_c!(f32::MAX, f32 -> u128, 0xffffff00000000000000000000000000);
-        // nextDown(f32::MAX) = 2^128 - 2 * 2^104
-        const SECOND_LARGEST_F32: f32 = 340282326356119256160033759537265639424.;
-        test_c!(SECOND_LARGEST_F32, f32 -> u128, 0xfffffe00000000000000000000000000);
-    }
+fn main() {
+    assert_eq!(f32_to_i128(f32::NAN), 0i128);
 }
