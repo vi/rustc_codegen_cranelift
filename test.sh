@@ -78,7 +78,7 @@ rm src/test/ui/issues/issue-50993.rs || true # Target `thumbv7em-none-eabihf` is
 rm src/test/ui/macros/same-sequence-span.rs || true # Proc macro .rustc section not found?
 rm src/test/ui/suggestions/issue-61963.rs || true # ^
 
-RUSTC_ARGS="-Zcodegen-backend="$(pwd)"/../target/"$CHANNEL"/librustc_codegen_cranelift."$dylib_ext" --sysroot "$(pwd)"/../build_sysroot/sysroot -Cpanic=abort"
+RUSTC_ARGS="-Zpanic-abort-tests -Zcodegen-backend="$(pwd)"/../target/"$CHANNEL"/librustc_codegen_cranelift."$dylib_ext" --sysroot "$(pwd)"/../build_sysroot/sysroot -Cpanic=abort"
 
 echo "[TEST] rustc test suite"
 ./x.py test --stage 0 src/test/ui/ --rustc-args "$RUSTC_ARGS" 2>&1 | tee log.txt
