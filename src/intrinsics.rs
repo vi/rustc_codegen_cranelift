@@ -129,7 +129,7 @@ macro_rules! atomic_minmax {
 }
 
 macro validate_atomic_type($fx:ident, $intrinsic:ident, $ty:expr) {
-    match $ty.sty {
+    match $ty.kind {
         ty::Uint(_) | ty::Int(_) => {}
         _ => {
             // FIXME show span of caller
