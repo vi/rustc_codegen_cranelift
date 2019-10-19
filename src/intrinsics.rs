@@ -416,7 +416,8 @@ pub fn codegen_intrinsic_call<'tcx>(
     intrinsic_match! {
         fx, intrinsic, substs, args,
         _ => {
-            unimpl!("unsupported intrinsic {}", intrinsic)
+            fx.tcx.sess.warn(&format!("unsupported intrinsic {}", intrinsic));
+            crate::trap::trap_unimplemented(fx, format!("unsupported intrinsic {}", intrinsic));
         };
 
         assume, (c _a) {};
