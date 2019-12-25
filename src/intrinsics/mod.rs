@@ -612,34 +612,56 @@ pub fn codegen_intrinsic_call<'tcx>(
                 return;
             }
 
+            fn make_init_val<'a, 'tcx>(fx: &mut FunctionCx<'a, 'tcx, impl Backend>, clif_ty: Type) -> Value {
+                match clif_ty {
+                    types::I8 | types::I16 | types::I32 | types::I64 => fx.bcx.ins().iconst(clif_ty, 0),
+                    types::I128 => {
+                        let zero = fx.bcx.ins().iconst(types::I64, 0);
+                        fx.bcx.ins().iconcat(zero, zero)
+                    }
+                    types::F32 => {
+                        let zero = fx.bcx.ins().iconst(types::I32, 0);
+                        fx.bcx.ins().bitcast(types::F32, zero)
+                    }
+                    types::F64 => {
+                        let zero = fx.bcx.ins().iconst(types::I64, 0);
+                        fx.bcx.ins().bitcast(types::F64, zero)
+                    }
+                    _ => panic!("clif_type returned {}", clif_ty),
+                }
+            }
+
             match *ret.inner() {
                 CPlaceInner::NoPlace => {}
                 CPlaceInner::Var(var) => {
                     let clif_ty = fx.clif_type(layout.ty).unwrap();
-                    let val = match clif_ty {
-                        types::I8 | types::I16 | types::I32 | types::I64 => fx.bcx.ins().iconst(clif_ty, 0),
-                        types::I128 => {
-                            let zero = fx.bcx.ins().iconst(types::I64, 0);
-                            fx.bcx.ins().iconcat(zero, zero)
-                        }
-                        types::F32 => {
-                            let zero = fx.bcx.ins().iconst(types::I32, 0);
-                            fx.bcx.ins().bitcast(types::F32, zero)
-                        }
-                        types::F64 => {
-                            let zero = fx.bcx.ins().iconst(types::I64, 0);
-                            fx.bcx.ins().bitcast(types::F64, zero)
-                        }
-                        _ => panic!("clif_type returned {}", clif_ty),
-                    };
+                    let val = make_init_val(fx, clif_ty);
                     fx.bcx.set_val_label(val, cranelift_codegen::ir::ValueLabel::from_u32(var.as_u32()));
                     fx.bcx.def_var(mir_var(var), val);
                 }
-                _ => {
-                    let addr = ret.to_ptr(fx).get_addr(fx);
+                CPlaceInner::VarPair(var1, var2) => {
+                    let (clif_ty1, clif_ty2) = match &layout.abi {
+                        Abi::ScalarPair(scalar1, scalar2) => {
+                            (
+                                scalar_to_clif_type(fx.tcx, scalar1.clone()),
+                                scalar_to_clif_type(fx.tcx, scalar2.clone()),
+                            )
+                        }
+                        _ => unreachable!("CPlaceInner::VarPair for non ScalarPair abi {:?}", layout.abi),
+                    };
+                    let val1 = make_init_val(fx, clif_ty1);
+                    let val2 = make_init_val(fx, clif_ty2);
+                    fx.bcx.set_val_label(val1, cranelift_codegen::ir::ValueLabel::from_u32(var1.as_u32()));
+                    fx.bcx.set_val_label(val2, cranelift_codegen::ir::ValueLabel::from_u32(var2.as_u32()));
+                    fx.bcx.def_var(mir_var(var1), val1);
+                    fx.bcx.def_var(mir_var(var2), val2);
+                }
+                CPlaceInner::Addr(ptr, None) => {
+                    let addr = ptr.get_addr(fx);
                     let layout = ret.layout();
                     fx.bcx.emit_small_memset(fx.module.target_config(), addr, 0, layout.size.bytes(), 1);
                 }
+                CPlaceInner::Addr(_, Some(_)) => bug!("intrinsics::init for unsized type"),
             }
         };
         uninit, () {
@@ -648,33 +670,54 @@ pub fn codegen_intrinsic_call<'tcx>(
                 crate::trap::trap_panic(fx, "[panic] Called intrinsic::uninit for uninhabited type.");
                 return;
             }
+            fn make_uninit_val<'a, 'tcx>(fx: &mut FunctionCx<'a, 'tcx, impl Backend>, clif_ty: Type) -> Value {
+                match clif_ty {
+                    types::I8 | types::I16 | types::I32 | types::I64 => fx.bcx.ins().iconst(clif_ty, 42),
+                    types::I128 => {
+                        let zero = fx.bcx.ins().iconst(types::I64, 0);
+                        let fourty_two = fx.bcx.ins().iconst(types::I64, 42);
+                        fx.bcx.ins().iconcat(fourty_two, zero)
+                    }
+                    types::F32 => {
+                        let zero = fx.bcx.ins().iconst(types::I32, 0xdeadbeef);
+                        fx.bcx.ins().bitcast(types::F32, zero)
+                    }
+                    types::F64 => {
+                        let zero = fx.bcx.ins().iconst(types::I64, 0xcafebabedeadbeefu64 as i64);
+                        fx.bcx.ins().bitcast(types::F64, zero)
+                    }
+                    _ => panic!("clif_type returned {}", clif_ty),
+                }
+            };
             match *ret.inner() {
                 CPlaceInner::NoPlace => {},
                 CPlaceInner::Var(var) => {
                     let clif_ty = fx.clif_type(layout.ty).unwrap();
-                    let val = match clif_ty {
-                        types::I8 | types::I16 | types::I32 | types::I64 => fx.bcx.ins().iconst(clif_ty, 42),
-                        types::I128 => {
-                            let zero = fx.bcx.ins().iconst(types::I64, 0);
-                            let fourty_two = fx.bcx.ins().iconst(types::I64, 42);
-                            fx.bcx.ins().iconcat(fourty_two, zero)
-                        }
-                        types::F32 => {
-                            let zero = fx.bcx.ins().iconst(types::I32, 0xdeadbeef);
-                            fx.bcx.ins().bitcast(types::F32, zero)
-                        }
-                        types::F64 => {
-                            let zero = fx.bcx.ins().iconst(types::I64, 0xcafebabedeadbeefu64 as i64);
-                            fx.bcx.ins().bitcast(types::F64, zero)
-                        }
-                        _ => panic!("clif_type returned {}", clif_ty),
-                    };
+                    let val = make_uninit_val(fx, clif_ty);
                     fx.bcx.set_val_label(val, cranelift_codegen::ir::ValueLabel::from_u32(var.as_u32()));
                     fx.bcx.def_var(mir_var(var), val);
                 }
-                CPlaceInner::Addr(_, _) => {
+                CPlaceInner::VarPair(var1, var2) => {
+                    let (clif_ty1, clif_ty2) = match &layout.abi {
+                        Abi::ScalarPair(scalar1, scalar2) => {
+                            (
+                                scalar_to_clif_type(fx.tcx, scalar1.clone()),
+                                scalar_to_clif_type(fx.tcx, scalar2.clone()),
+                            )
+                        }
+                        _ => unreachable!("CPlaceInner::VarPair for non ScalarPair abi {:?}", layout.abi),
+                    };
+                    let val1 = make_uninit_val(fx, clif_ty1);
+                    let val2 = make_uninit_val(fx, clif_ty2);
+                    fx.bcx.set_val_label(val1, cranelift_codegen::ir::ValueLabel::from_u32(var1.as_u32()));
+                    fx.bcx.set_val_label(val2, cranelift_codegen::ir::ValueLabel::from_u32(var2.as_u32()));
+                    fx.bcx.def_var(mir_var(var1), val1);
+                    fx.bcx.def_var(mir_var(var2), val2);
+                }
+                CPlaceInner::Addr(_, None) => {
                     // Don't write to `ret`, as the destination memory is already uninitialized.
                 }
+                CPlaceInner::Addr(_, Some(_)) => bug!("intrinsics::uninit for unsized type"),
             }
         };
         write_bytes, (c dst, v val, v count) {

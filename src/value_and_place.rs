@@ -232,6 +232,7 @@ pub struct CPlace<'tcx> {
 #[derive(Debug, Copy, Clone)]
 pub enum CPlaceInner {
     Var(Local),
+    VarPair(Local, Local),
     Addr(Pointer, Option<Value>),
     NoPlace,
 }
@@ -281,11 +282,16 @@ impl<'tcx> CPlace<'tcx> {
         local: Local,
         layout: TyLayout<'tcx>,
     ) -> CPlace<'tcx> {
-        fx.bcx
-            .declare_var(mir_var(local), fx.clif_type(layout.ty).unwrap());
-        CPlace {
-            inner: CPlaceInner::Var(local),
-            layout,
+        match &layout.abi {
+            Abi::Scalar(scalar) => {
+                fx.bcx.declare_var(mir_var(local), scalar_to_clif_type(fx.tcx, scalar.clone()));
+                CPlace {
+                    inner: CPlaceInner::Var(local),
+                    layout,
+                }
+            }
+            Abi::ScalarPair(_, _) => todo!(),
+            _ => unreachable!("CPlace::new_var(fx, {:?}, {:?})", local, layout),
         }
     }
 
@@ -310,6 +316,13 @@ impl<'tcx> CPlace<'tcx> {
                 let val = fx.bcx.use_var(mir_var(var));
                 fx.bcx.set_val_label(val, cranelift_codegen::ir::ValueLabel::from_u32(var.as_u32()));
                 CValue::by_val(val, layout)
+            }
+            CPlaceInner::VarPair(var1, var2) => {
+                let val1 = fx.bcx.use_var(mir_var(var1));
+                let val2 = fx.bcx.use_var(mir_var(var2));
+                fx.bcx.set_val_label(val1, cranelift_codegen::ir::ValueLabel::from_u32(var1.as_u32()));
+                fx.bcx.set_val_label(val2, cranelift_codegen::ir::ValueLabel::from_u32(var2.as_u32()));
+                CValue::by_val_pair(val1, val2, layout)
             }
             CPlaceInner::Addr(ptr, extra) => {
                 assert!(extra.is_none(), "unsized values are not yet supported");
@@ -341,7 +354,9 @@ impl<'tcx> CPlace<'tcx> {
                     None,
                 )
             }
-            CPlaceInner::Var(_) => bug!("Expected CPlace::Addr, found CPlace::Var"),
+            CPlaceInner::Var(_) | CPlaceInner::VarPair(_, _) => {
+                bug!("Expected CPlace::Addr, found CPlace::Var");
+            }
         }
     }
 
@@ -432,6 +447,14 @@ impl<'tcx> CPlace<'tcx> {
                 fx.bcx.def_var(mir_var(var), data);
                 return;
             }
+            CPlaceInner::VarPair(var1, var2) => {
+                let (val1, val2) = from.load_scalar_pair(fx);
+                fx.bcx.set_val_label(val1, cranelift_codegen::ir::ValueLabel::from_u32(var1.as_u32()));
+                fx.bcx.set_val_label(val2, cranelift_codegen::ir::ValueLabel::from_u32(var2.as_u32()));
+                fx.bcx.def_var(mir_var(var1), val1);
+                fx.bcx.def_var(mir_var(var2), val2);
+                return;
+            }
             CPlaceInner::Addr(ptr, None) => ptr,
             CPlaceInner::NoPlace => {
                 if dst_layout.abi != Abi::Uninhabited {
@@ -482,13 +505,35 @@ impl<'tcx> CPlace<'tcx> {
         field: mir::Field,
     ) -> CPlace<'tcx> {
         let layout = self.layout();
-        let (base, extra) = self.to_ptr_maybe_unsized(fx);
 
-        let (field_ptr, field_layout) = codegen_field(fx, base, extra, layout, field);
-        if field_layout.is_unsized() {
-            CPlace::for_ptr_with_extra(field_ptr, extra.unwrap(), field_layout)
-        } else {
-            CPlace::for_ptr(field_ptr, field_layout)
+        match self.inner {
+            CPlaceInner::Addr(base, extra) => {
+                let (field_ptr, field_layout) = codegen_field(fx, base, extra, layout, field);
+                if field_layout.is_unsized() {
+                    CPlace::for_ptr_with_extra(field_ptr, extra.unwrap(), field_layout)
+                } else {
+                    CPlace::for_ptr(field_ptr, field_layout)
+                }
+            }
+            CPlaceInner::NoPlace => CPlace::no_place(layout.field(&*fx, field.index())),
+            CPlaceInner::VarPair(var1, var2) => {
+                match layout.abi {
+                    Abi::ScalarPair(_, _) => {}
+                    _ => unreachable!("CPlaceInner::VarPair for non ScalarPair abi {:?}", layout.abi),
+                }
+                let field_var = match field.index() {
+                    0 => var1,
+                    1 => var2,
+                    _ => unreachable!("{:?}", field.index()),
+                };
+                CPlace {
+                    inner: CPlaceInner::Var(field_var),
+                    layout: layout.field(&*fx, field.index()),
+                }
+            }
+            CPlaceInner::Var(_) => {
+                bug!("Expected CPlace::Addr, found CPlace::Var");
+            }
         }
     }
 

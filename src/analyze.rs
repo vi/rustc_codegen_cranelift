@@ -11,7 +11,15 @@ pub enum SsaKind {
 
 pub fn analyze(fx: &FunctionCx<'_, '_, impl Backend>) -> IndexVec<Local, SsaKind> {
     let mut flag_map = fx.mir.local_decls.iter().map(|local_decl| {
-        if fx.clif_type(local_decl.ty).is_some() {
+        let local_ty = fx.monomorphize(&local_decl.ty);
+        if fx.clif_type(local_ty).is_some() {
+            SsaKind::Ssa
+        } else if let ty::Ref(_, pointee, _) | ty::RawPtr(ty::TypeAndMut {
+            ty: pointee,
+            mutbl: _
+        }) = local_ty.kind {
+            assert!(!pointee.is_sized(fx.tcx.at(fx.mir.span), ParamEnv::reveal_all()));
+            // Fat pointer
             SsaKind::Ssa
         } else {
             SsaKind::NotSsa

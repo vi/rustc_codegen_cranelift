@@ -65,31 +65,28 @@ pub fn add_local_place_comments<'tcx>(
     } = details;
 
     let (kind, extra) = match *place.inner() {
-        CPlaceInner::Var(var) => {
-            assert_eq!(local, var);
-            ("ssa", std::borrow::Cow::Borrowed(""))
-        }
+        CPlaceInner::Var(var) => ("ssa", format!("{:?}", var)),
+        CPlaceInner::VarPair(var1, var2) => ("ssa", format!("{:?},{:?}", var1, var2)),
         CPlaceInner::NoPlace => ("zst", "".into()),
         CPlaceInner::Addr(ptr, None) => match ptr.base_and_offset() {
             (crate::pointer::PointerBase::Addr(addr), offset) => {
-                ("reuse", format!("storage={}{}", addr, offset).into())
+                ("reuse", format!("storage={}{}", addr, offset))
             }
             (crate::pointer::PointerBase::Stack(stack_slot), offset) => {
-                ("stack", format!("storage={}{}", stack_slot, offset).into())
+                ("stack", format!("storage={}{}", stack_slot, offset))
             }
         },
         CPlaceInner::Addr(_, Some(_)) => unreachable!(),
     };
 
     fx.add_global_comment(format!(
-        "{:<5} {:5} {:30} {:4}b {}, {}{}{}",
+        "{:<5}: {:5} {:30} {:4}b {}, {} = {}",
         kind,
         format!("{:?}", local),
         format!("{:?}", ty),
         size.bytes(),
         align.abi.bytes(),
         align.pref.bytes(),
-        if extra.is_empty() { "" } else { "              " },
         extra,
     ));
 }
