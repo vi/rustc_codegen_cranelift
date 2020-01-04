@@ -69,13 +69,15 @@ $RUSTC example/mod_bench.rs --crate-type bin
 
 pushd simple-raytracer
 echo "[BENCH COMPILE] ebobby/simple-raytracer"
-hyperfine --runs ${RUN_RUNS:-10} --warmup 1 --prepare "rm -r target/*/debug || true" \
+hyperfine --runs ${RUN_RUNS:-10} --warmup 1 --prepare "rm -r target/*/{debug,release} || true" \
     "RUSTFLAGS='' cargo build --target $TARGET_TRIPLE" \
-    "../cargo.sh build"
+    "../cargo.sh build && cp ./target/*/debug/main ./raytracer_cg_clif" \
+    "../cargo.sh build --release && cp ./target/*/release/main ./raytracer_cg_clif_opt" \
+    "../cargo.sh --inline build && cp ./target/*/debug/main ./raytracer_cg_clif_inline" \
+    "../cargo.sh --inline build --release && cp ./target/*/release/main ./raytracer_cg_clif_opt_inline"
 
 echo "[BENCH RUN] ebobby/simple-raytracer"
-cp ./target/*/debug/main ./raytracer_cg_clif
-hyperfine --runs ${RUN_RUNS:-10} ./raytracer_cg_llvm ./raytracer_cg_clif
+hyperfine --runs ${RUN_RUNS:-10} ./raytracer_*
 popd
 
 pushd build_sysroot/sysroot_src/src/libcore/tests
