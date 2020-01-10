@@ -238,9 +238,11 @@ pub(super) fn optimize_function<T: std::fmt::Debug>(
         }
 
         if users.stack_store.is_empty() && users.stack_load.is_empty() {
-            // FIXME make stack_slot zero sized.
+            opt_ctx.ctx.func.stack_slots[stack_slot.0].size = 0;
         }
     }
+
+    combine_load_bitcast(&mut opt_ctx);
 
     #[cfg(debug_assertions)] {
         println!();
@@ -280,16 +282,15 @@ fn combine_stack_addr_with_load_store(func: &mut Function) {
     }
 }
 
-fn remove_unused_stack_addr_and_stack_load(opt_ctx: &mut OptimizeContext) {
+fn get_stack_addr_load_insts_users(opt_ctx: &OptimizeContext) -> HashMap::<Inst, HashSet<Inst>> {
     // FIXME incrementally rebuild on each call?
     let mut stack_addr_load_insts_users = HashMap::<Inst, HashSet<Inst>>::new();
 
-    let mut cursor = FuncCursor::new(&mut opt_ctx.ctx.func);
-    while let Some(_ebb) = cursor.next_ebb() {
-        while let Some(inst) = cursor.next_inst() {
-            for &arg in cursor.func.dfg.inst_args(inst) {
-                if let ValueDef::Result(arg_origin, 0) = cursor.func.dfg.value_def(arg) {
-                    match cursor.func.dfg[arg_origin].opcode() {
+    for ebb in opt_ctx.ctx.func.layout.ebbs() {
+        for inst in opt_ctx.ctx.func.layout.ebb_insts(ebb) {
+            for &arg in opt_ctx.ctx.func.dfg.inst_args(inst) {
+                if let ValueDef::Result(arg_origin, 0) = opt_ctx.ctx.func.dfg.value_def(arg) {
+                    match opt_ctx.ctx.func.dfg[arg_origin].opcode() {
                         Opcode::StackAddr | Opcode::StackLoad => {
                             stack_addr_load_insts_users.entry(arg_origin).or_insert_with(HashSet::new).insert(inst);
                         }
@@ -309,6 +310,12 @@ fn remove_unused_stack_addr_and_stack_load(opt_ctx: &mut OptimizeContext) {
         assert!(is_recorded_stack_addr_or_stack_load);
     }
 
+    stack_addr_load_insts_users
+}
+
+fn remove_unused_stack_addr_and_stack_load(opt_ctx: &mut OptimizeContext) {
+    let stack_addr_load_insts_users = get_stack_addr_load_insts_users(&*opt_ctx);
+
     // Replace all unused stack_addr and stack_load instructions with nop.
     for stack_slot_users in opt_ctx.stack_slot_usage_map.values_mut() {
         // FIXME remove clone
@@ -322,6 +329,60 @@ fn remove_unused_stack_addr_and_stack_load(opt_ctx: &mut OptimizeContext) {
             if stack_addr_load_insts_users.get(&inst).map(|users| users.is_empty()).unwrap_or(true) {
                 stack_slot_users.remove_unused_load(&mut opt_ctx.ctx.func, inst);
             }
+        }
+    }
+}
+
+fn combine_load_bitcast(opt_ctx: &mut OptimizeContext) {
+    let stack_addr_load_insts_users = get_stack_addr_load_insts_users(&*opt_ctx);
+
+    let mut cursor = FuncCursor::new(&mut opt_ctx.ctx.func);
+    while let Some(_ebb) = cursor.next_ebb() {
+        while let Some(inst) = cursor.next_inst() {
+            let bitcast_arg = match cursor.func.dfg[inst] {
+                InstructionData::Unary { opcode: Opcode::Bitcast, arg } => {
+                    arg
+                }
+                _ => continue,
+            };
+
+            let bitcast_origin = if let ValueDef::Result(bitcast_origin, 0) = cursor.func.dfg.value_def(bitcast_arg) {
+                bitcast_origin
+            } else {
+                continue;
+            };
+
+            println!("{} | {}", cursor.func.dfg.display_inst(inst, None), cursor.func.dfg.display_inst(bitcast_origin, None));
+
+            let bitcast_res = cursor.func.dfg.inst_results(inst)[0];
+            let ty = cursor.func.dfg.value_type(bitcast_res);
+
+            let load_res = match cursor.func.dfg[bitcast_origin] {
+                InstructionData::StackLoad {
+                    opcode: Opcode::StackLoad,
+                    stack_slot,
+                    offset,
+                } => {
+                    println!("Replace {} + {} with stack_load.{}", cursor.func.dfg.display_inst(inst, None), cursor.func.dfg.display_inst(bitcast_origin, None), ty);
+                    FuncCursor::new(cursor.func).after_inst(bitcast_origin).ins().stack_load(ty, stack_slot, offset)
+                }
+                InstructionData::Load {
+                    opcode: Opcode::Load,
+                    flags,
+                    arg,
+                    offset,
+                } => {
+                    println!("Replace {} + {} with load.{}", cursor.func.dfg.display_inst(inst, None), cursor.func.dfg.display_inst(bitcast_origin, None), ty);
+                    FuncCursor::new(cursor.func).after_inst(bitcast_origin).ins().load(ty, flags, arg, offset)
+                }
+                _ => continue,
+            };
+
+            // FIXME only replace bitcast when the load is notrap, aligned and has only one user and remove the old load in that case.
+
+            cursor.func.dfg.detach_results(inst);
+            cursor.func.dfg.replace(inst).nop();
+            cursor.func.dfg.change_to_alias(bitcast_res, load_res);
         }
     }
 }
