@@ -17,6 +17,7 @@ use crate::prelude::*;
 pub(crate) struct ConstantCx {
     todo: Vec<TodoItem>,
     done: FxHashSet<DataId>,
+    pub make_shim: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -26,7 +27,7 @@ enum TodoItem {
 }
 
 impl ConstantCx {
-    pub(crate) fn finalize(mut self, tcx: TyCtxt<'_>, module: &mut Module<impl Backend>) {
+    pub(crate) fn finalize(mut self, tcx: TyCtxt<'_>, module: &mut Module<impl Backend + 'static>) {
         //println!("todo {:?}", self.todo);
         define_all_allocs(tcx, module, &mut self);
         //println!("done {:?}", self.done);
@@ -262,7 +263,9 @@ fn data_id_for_static(
     data_id
 }
 
-fn define_all_allocs(tcx: TyCtxt<'_>, module: &mut Module<impl Backend>, cx: &mut ConstantCx) {
+fn define_all_allocs(tcx: TyCtxt<'_>, module: &mut Module<impl Backend + 'static>, cx: &mut ConstantCx) {
+    let mut statics = FxHashMap::default();
+
     while let Some(todo_item) = cx.todo.pop() {
         let (data_id, alloc, section_name) = match todo_item {
             TodoItem::Alloc(alloc_id) => {
@@ -296,6 +299,9 @@ fn define_all_allocs(tcx: TyCtxt<'_>, module: &mut Module<impl Backend>, cx: &mu
                         Linkage::Export // FIXME Set hidden visibility
                     },
                 );
+
+                statics.insert(def_id, data_id);
+
                 (data_id, alloc, section_name)
             }
         };
@@ -363,6 +369,19 @@ fn define_all_allocs(tcx: TyCtxt<'_>, module: &mut Module<impl Backend>, cx: &mu
     }
 
     assert!(cx.todo.is_empty(), "{:?}", cx.todo);
+
+    module.finalize_definitions();
+
+    if cx.make_shim {
+        for (def_id, data_id) in statics {
+            crate::driver::EXISTING_SYMBOLS.with(|existing_symbols| {
+                existing_symbols.borrow_mut().insert(
+                    tcx.symbol_name(Instance::mono(tcx, def_id)).name.as_str().to_string(),
+                    std::any::Any::downcast_ref::<(*mut u8, usize)>(&module.get_finalized_data(data_id)).unwrap().0,
+                );
+            });
+        }
+    }
 }
 
 pub(crate) fn mir_operand_get_const_val<'tcx>(

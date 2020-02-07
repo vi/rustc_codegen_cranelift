@@ -1,4 +1,4 @@
-#![feature(rustc_private, decl_macro, type_alias_impl_trait, associated_type_bounds, never_type)]
+#![feature(rustc_private, decl_macro, type_alias_impl_trait, associated_type_bounds, never_type, vec_into_raw_parts)]
 #![allow(intra_doc_link_resolution_failure)]
 #![warn(rust_2018_idioms)]
 #![warn(unused_lifetimes)]
@@ -141,6 +141,7 @@ impl<'tcx, B: Backend + 'static> CodegenCx<'tcx, B> {
         tcx: TyCtxt<'tcx>,
         module: Module<B>,
         debug_info: bool,
+        make_shim: bool,
     ) -> Self {
         let unwind_context = UnwindContext::new(tcx, module.isa());
         let debug_context = if debug_info {
@@ -151,10 +152,12 @@ impl<'tcx, B: Backend + 'static> CodegenCx<'tcx, B> {
         } else {
             None
         };
+        let mut constants_cx = ConstantCx::default();
+        constants_cx.make_shim = make_shim;
         CodegenCx {
             tcx,
             module,
-            constants_cx: ConstantCx::default(),
+            constants_cx,
             cached_context: Context::new(),
             vtables: FxHashMap::default(),
             debug_context,
@@ -327,3 +330,5 @@ fn build_isa(sess: &Session, enable_pic: bool) -> Box<dyn isa::TargetIsa + 'stat
 pub fn __rustc_codegen_backend() -> Box<dyn CodegenBackend> {
     Box::new(CraneliftCodegenBackend)
 }
+
+pub use driver::__clif_jit_fn;

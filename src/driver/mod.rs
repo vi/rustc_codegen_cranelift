@@ -9,6 +9,11 @@ mod aot;
 #[cfg(not(target_arch = "wasm32"))]
 mod jit;
 
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) use jit::EXISTING_SYMBOLS;
+#[cfg(not(target_arch = "wasm32"))]
+pub use jit::__clif_jit_fn;
+
 pub(crate) fn codegen_crate(
     tcx: TyCtxt<'_>,
     metadata: EncodedMetadata,
@@ -32,6 +37,7 @@ pub(crate) fn codegen_crate(
 fn codegen_mono_items<'tcx>(
     cx: &mut CodegenCx<'tcx, impl Backend + 'static>,
     mono_items: Vec<(MonoItem<'tcx>, (RLinkage, Visibility))>,
+    make_shim: bool,
 ) {
     cx.tcx.sess.time("predefine functions", || {
         for &(mono_item, (linkage, visibility)) in &mono_items {
@@ -47,9 +53,27 @@ fn codegen_mono_items<'tcx>(
         }
     });
 
-    for (mono_item, (linkage, visibility)) in mono_items {
+    for &(mono_item, (linkage, visibility)) in &mono_items {
         let linkage = crate::linkage::get_clif_linkage(mono_item, linkage, visibility);
-        trans_mono_item(cx, mono_item, linkage);
+        trans_mono_item(cx, mono_item, linkage, make_shim);
+    }
+
+    if make_shim {
+        cx.module.finalize_definitions();
+        EXISTING_SYMBOLS.with(move |existing_symbols| {
+            for &(mono_item, _) in &mono_items {
+                let inst = match mono_item {
+                    MonoItem::Fn(inst) => inst,
+                    MonoItem::Static(_) | MonoItem::GlobalAsm(_) => continue,
+                };
+                let (name, sig) = crate::abi::get_function_name_and_sig(cx.tcx, cx.module.isa().triple(), inst, true);
+                let func_id = cx.module
+                    .declare_function(&name, Linkage::Export, &sig)
+                    .unwrap();
+                let ptr = cx.module.get_finalized_function(func_id);
+                existing_symbols.borrow_mut().insert(name, *Any::downcast_ref::<*const u8>(&ptr).unwrap());
+            }
+        });
     }
 }
 
@@ -57,6 +81,7 @@ fn trans_mono_item<'tcx, B: Backend + 'static>(
     cx: &mut crate::CodegenCx<'tcx, B>,
     mono_item: MonoItem<'tcx>,
     linkage: Linkage,
+    make_shim: bool,
 ) {
     let tcx = cx.tcx;
     match mono_item {
@@ -85,7 +110,11 @@ fn trans_mono_item<'tcx, B: Backend + 'static>(
                 }
             });
 
-            cx.tcx.sess.time("codegen fn", || crate::base::trans_fn(cx, inst, linkage));
+            if make_shim {
+                jit::codegen_shim(cx, inst);
+            } else {
+                cx.tcx.sess.time("codegen fn", || crate::base::trans_fn(cx, inst, linkage));
+            }
         }
         MonoItem::Static(def_id) => {
             crate::constant::codegen_static(&mut cx.constants_cx, def_id);
