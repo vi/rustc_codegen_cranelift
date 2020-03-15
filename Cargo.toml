@@ -30,14 +30,15 @@ default-features = false
 features = ["write"] # We don't need read support
 
 # Uncomment to use local checkout of cranelift
-#[patch."https://github.com/bytecodealliance/wasmtime/"]
-#cranelift-codegen = { path = "../wasmtime/cranelift/codegen" }
-#cranelift-frontend = { path = "../wasmtime/cranelift/frontend" }
-#cranelift-module = { path = "../wasmtime/cranelift/module" }
-#cranelift-simplejit = { path = "../wasmtime/cranelift/simplejit" }
-#cranelift-object = { path = "../wasmtime/cranelift/object" }
+[patch."https://github.com/bytecodealliance/wasmtime/"]
+cranelift-codegen = { git = "https://github.com/bjorn3/wasmtime.git", branch = "update_object" }
+cranelift-frontend = { git = "https://github.com/bjorn3/wasmtime.git", branch = "update_object" }
+cranelift-module = { git = "https://github.com/bjorn3/wasmtime.git", branch = "update_object" }
+cranelift-simplejit = { git = "https://github.com/bjorn3/wasmtime.git", branch = "update_object" }
+cranelift-object = { git = "https://github.com/bjorn3/wasmtime.git", branch = "update_object" }
 
-#[patch.crates-io]
+[patch.crates-io]
+object = { git = "https://github.com/gimli-rs/object.git" }
 #gimli = { path = "../" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -47,6 +48,9 @@ libloading = "0.5.1"
 [profile.dev]
 # By compiling dependencies with optimizations, performing tests gets much faster.
 opt-level = 3
+
+[profile.release]
+debug = true
 
 [profile.dev.package.rustc_codegen_cranelift]
 # Disabling optimizations for cg_clif itself makes compilation after a change faster.
