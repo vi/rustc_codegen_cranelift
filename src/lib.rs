@@ -282,7 +282,7 @@ fn build_isa(sess: &Session, enable_pic: bool) -> Box<dyn isa::TargetIsa + 'stat
     };
     flags_builder.set("tls_model", tls_model).unwrap();
 
-    flags_builder.set("enable_simd", "true").unwrap();
+    //flags_builder.set("enable_simd", "true").unwrap();
 
     // FIXME(CraneStation/cranelift#732) fix LICM in presence of jump tables
     /*
