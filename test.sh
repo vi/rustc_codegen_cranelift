@@ -21,11 +21,12 @@ $RUSTC example/mini_core.rs --crate-name mini_core --crate-type lib,dylib
 echo "[BUILD] example"
 $RUSTC example/example.rs --crate-type lib
 
-echo "[JIT] mini_core_hello_world"
-CG_CLIF_JIT=1 CG_CLIF_JIT_ARGS="abc bcd" $RUSTC --crate-type bin -Cprefer-dynamic example/mini_core_hello_world.rs --cfg jit
+#echo "[JIT] mini_core_hello_world"
+#CG_CLIF_JIT=1 CG_CLIF_JIT_ARGS="abc bcd" $RUSTC --crate-type bin -Cprefer-dynamic example/mini_core_hello_world.rs --cfg jit
 
 echo "[AOT] mini_core_hello_world"
 $RUSTC example/mini_core_hello_world.rs --crate-name mini_core_hello_world --crate-type bin -g
+cat target/out/clif/mini_core_hello_world*main*
 ./target/out/mini_core_hello_world abc bcd
 # (echo "break set -n main"; echo "run"; sleep 1; echo "si -c 10"; sleep 1; echo "frame variable") | lldb -- ./target/out/mini_core_hello_world abc bcd
 

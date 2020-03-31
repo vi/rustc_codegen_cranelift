@@ -56,7 +56,7 @@ jobs:
       uses: actions-rs/cargo@v1.0.1
       with:
         command: rustc
-        args: --release -- -Zrun_dsymutil=no
+        args: -- -Zrun_dsymutil=no
 
     - name: Test
       run: |
@@ -67,4 +67,4 @@ jobs:
         export COMPILE_RUNS=2
         export RUN_RUNS=2
 
-        ./test.sh --release
+        ./test.sh
