@@ -303,7 +303,7 @@ fn build_isa(sess: &Session, enable_pic: bool) -> Box<dyn isa::TargetIsa + 'stat
     let flags = settings::Flags::new(flags_builder);
 
     let mut isa_builder = cranelift_codegen::isa::lookup(target_triple).unwrap();
-    isa_builder.enable("haswell").unwrap();
+    //isa_builder.enable("haswell").unwrap();
     isa_builder.finish(flags)
 }
 
