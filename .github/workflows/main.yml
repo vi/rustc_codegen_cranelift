@@ -47,6 +47,7 @@ jobs:
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('rust-toolchain') }}
 
     - name: Prepare dependencies
+      shell: bash
       run: |
         git config --global user.email "user@example.com"
         git config --global user.name "User"
@@ -60,6 +61,7 @@ jobs:
         args: --release -- -Zrun_dsymutil=no
 
     - name: Test
+      shell: bash
       run: |
         # Enable backtraces for easier debugging
         export RUST_BACKTRACE=1
