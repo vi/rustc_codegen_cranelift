@@ -14,6 +14,13 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
+    - name: Setup git config
+      shell: bash
+      run: |
+        git config --global core.autocrlf false
+        git config --global user.email "user@example.com"
+        git config --global user.name "User"
+          
     - uses: actions/checkout@v2
 
     # https://github.com/actions/cache/issues/133
@@ -49,8 +56,6 @@ jobs:
     - name: Prepare dependencies
       shell: bash
       run: |
-        git config --global user.email "user@example.com"
-        git config --global user.name "User"
         ./prepare.sh
 
     # Compile is a separate step, as the actions-rs/cargo action supports error annotations
