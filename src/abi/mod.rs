@@ -82,19 +82,9 @@ fn clif_sig_from_fn_sig<'tcx>(
     is_vtable_fn: bool,
     requires_caller_location: bool,
 ) -> Signature {
-    let abi = match sig.abi {
-        Abi::System => {
-            if tcx.sess.target.target.options.is_like_windows {
-                unimplemented!()
-            } else {
-                Abi::C
-            }
-        }
-        abi => abi,
-    };
     let (call_conv, inputs, output): (CallConv, Vec<Ty<'tcx>>, Ty<'tcx>) = match abi {
         Abi::Rust => (CallConv::triple_default(triple), sig.inputs().to_vec(), sig.output()),
-        Abi::C => (CallConv::triple_default(triple), sig.inputs().to_vec(), sig.output()),
+        Abi::C | Abi::System => (CallConv::triple_default(triple), sig.inputs().to_vec(), sig.output()),
         Abi::RustCall => {
             assert_eq!(sig.inputs().len(), 2);
             let extra_args = match sig.inputs().last().unwrap().kind {

@@ -486,9 +486,11 @@ pub mod intrinsics {
 }
 
 pub mod libc {
-    #[link(name = "c")]
+    #[cfg_attr(not(windows), link(name = "c"))]
+    #[cfg_attr(windows, link(name = "msvcrt"))]
     extern "C" {
         pub fn puts(s: *const u8);
+        #[cfg_attr(windows, link_name = "_printf")]
         pub fn printf(format: *const i8, ...) -> i32;
         pub fn malloc(size: usize) -> *mut u8;
         pub fn free(ptr: *mut u8);
