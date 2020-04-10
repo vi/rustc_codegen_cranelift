@@ -6,7 +6,7 @@ if [[ "$unamestr" == 'Linux' ]]; then
    dylib='librustc_codegen_cranelift.so'
 elif [[ "$unamestr" == 'Darwin' ]]; then
    dylib='librustc_codegen_cranelift.dylib'
-elif [[ "$unamestr" == 'MINGW64_NT-10.0' ]]; then
+elif [[ "$unamestr" == 'MINGW64_NT-10.0-17763' ]]; then
    dylib='rustc_codegen_cranelift.dll'
 else
    echo "Unsupported os"
