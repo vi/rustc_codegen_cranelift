@@ -95,7 +95,6 @@ fn clif_sig_from_fn_sig<'tcx>(
             inputs.extend(extra_args.types());
             (CallConv::triple_default(triple), inputs, sig.output())
         }
-        Abi::System => unreachable!(),
         Abi::RustIntrinsic => (CallConv::triple_default(triple), sig.inputs().to_vec(), sig.output()),
         _ => unimplemented!("unsupported abi {:?}", sig.abi),
     };
