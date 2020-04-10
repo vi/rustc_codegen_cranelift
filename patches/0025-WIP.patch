@@ -1,0 +1,172 @@
+From 7496bb94a2fb2bc34629c9781c3bc3a470becaee Mon Sep 17 00:00:00 2001
+From: bjorn3 <bjorn3@users.noreply.github.com>
+Date: Fri, 10 Apr 2020 13:47:42 +0200
+Subject: [PATCH] [WIP]
+
+---
+ src/libproc_macro/bridge/buffer.rs       |  4 +++-
+ src/libproc_macro/bridge/client.rs       | 16 ++++++++++++++--
+ src/libproc_macro/bridge/closure.rs      |  2 +-
+ src/libproc_macro/bridge/rpc.rs          |  4 ++++
+ src/libstd/sys/unix/fast_thread_local.rs | 20 --------------------
+ 5 files changed, 22 insertions(+), 24 deletions(-)
+
+diff --git a/src/libproc_macro/bridge/buffer.rs b/src/libproc_macro/bridge/buffer.rs
+index aeecbd4..a7161eb 100644
+--- a/src/libproc_macro/bridge/buffer.rs
++++ b/src/libproc_macro/bridge/buffer.rs
+@@ -5,7 +5,7 @@ use std::mem;
+ use std::ops::{Deref, DerefMut};
+ use std::slice;
+ 
+-#[repr(C)]
++//#[repr(C)]
+ struct Slice<'a, T> {
+     data: &'a [T; 0],
+     len: usize,
+@@ -55,12 +55,14 @@ impl<T: Copy> Default for Buffer<T> {
+ impl<T: Copy> Deref for Buffer<T> {
+     type Target = [T];
+     fn deref(&self) -> &[T] {
++        eprintln!("deref {:p} 0x{:08x}", self.data, self.len);
+         unsafe { slice::from_raw_parts(self.data as *const T, self.len) }
+     }
+ }
+ 
+ impl<T: Copy> DerefMut for Buffer<T> {
+     fn deref_mut(&mut self) -> &mut [T] {
++        eprintln!("deref_mut {:p} 0x{:08x}", self.data, self.len);
+         unsafe { slice::from_raw_parts_mut(self.data, self.len) }
+     }
+ }
+diff --git a/src/libproc_macro/bridge/client.rs b/src/libproc_macro/bridge/client.rs
+index 088db92..fddd58f 100644
+--- a/src/libproc_macro/bridge/client.rs
++++ b/src/libproc_macro/bridge/client.rs
+@@ -44,7 +44,7 @@ macro_rules! define_handles {
+         }
+ 
+         $(
+-            #[repr(C)]
++            #[repr(transparent)]
+             pub(crate) struct $oty(handle::Handle);
+             impl !Send for $oty {}
+             impl !Sync for $oty {}
+@@ -119,7 +119,7 @@ macro_rules! define_handles {
+         )*
+ 
+         $(
+-            #[repr(C)]
++            #[repr(transparent)]
+             #[derive(Copy, Clone, PartialEq, Eq, Hash)]
+             pub(crate) struct $ity(handle::Handle);
+             impl !Send for $ity {}
+@@ -230,7 +230,12 @@ macro_rules! define_client_side {
+                 Bridge::with(|bridge| {
+                     let mut b = bridge.cached_buffer.take();
+ 
++                    println!("cs {:p} 0x{:08x}", &b[..], b.len());
++
+                     b.clear();
++
++                    println!("cs clear{:p} 0x{:08x}", &b[..], b.len());
++
+                     api_tags::Method::$name(api_tags::$name::$method).encode(&mut b, &mut ());
+                     reverse_encode!(b; $($arg),*);
+ 
+@@ -238,6 +243,8 @@ macro_rules! define_client_side {
+ 
+                     let r = Result::<_, PanicMessage>::decode(&mut &b[..], &mut ());
+ 
++                    println!("cs put{:p} 0x{:08x}", &b[..], b.len());
++
+                     bridge.cached_buffer = b;
+ 
+                     r.unwrap_or_else(|e| panic::resume_unwind(e.into()))
+@@ -351,11 +358,15 @@ fn run_client<A: for<'a, 's> DecodeMut<'a, 's, ()>, R: Encode<()>>(
+     // The initial `cached_buffer` contains the input.
+     let mut b = bridge.cached_buffer.take();
+ 
++    eprintln!("run_client {:p} 0x{:08x}", &b[..], b.len());
++
+     panic::catch_unwind(panic::AssertUnwindSafe(|| {
+         bridge.enter(|| {
+             let reader = &mut &b[..];
+             let input = A::decode(reader, &mut ());
+ 
++            eprintln!("after decode");
++
+             // Put the `cached_buffer` back in the `Bridge`, for requests.
+             Bridge::with(|bridge| bridge.cached_buffer = b.take());
+ 
+@@ -391,6 +402,7 @@ impl Client<fn(crate::TokenStream) -> crate::TokenStream> {
+             bridge: Bridge<'_>,
+             f: impl FnOnce(crate::TokenStream) -> crate::TokenStream,
+         ) -> Buffer<u8> {
++            println!("{:p}", &bridge.cached_buffer[..]);
+             run_client(bridge, |input| f(crate::TokenStream(input)).0)
+         }
+         Client { get_handle_counters: HandleCounters::get, run, f }
+diff --git a/src/libproc_macro/bridge/closure.rs b/src/libproc_macro/bridge/closure.rs
+index 5bfe287..e8634d4 100644
+--- a/src/libproc_macro/bridge/closure.rs
++++ b/src/libproc_macro/bridge/closure.rs
+@@ -1,6 +1,6 @@
+ //! Closure type (equivalent to `&mut dyn FnMut(A) -> R`) that's `repr(C)`.
+ 
+-#[repr(C)]
++//#[repr(C)]
+ pub struct Closure<'a, A, R> {
+     call: unsafe extern "C" fn(&mut Env, A) -> R,
+     env: &'a mut Env,
+diff --git a/src/libproc_macro/bridge/rpc.rs b/src/libproc_macro/bridge/rpc.rs
+index 5c2f9ec..9297e83 100644
+--- a/src/libproc_macro/bridge/rpc.rs
++++ b/src/libproc_macro/bridge/rpc.rs
+@@ -35,6 +35,10 @@ macro_rules! rpc_encode_decode {
+             fn decode(r: &mut Reader<'_>, _: &mut S) -> Self {
+                 const N: usize = ::std::mem::size_of::<$ty>();
+ 
++                eprintln!("{:p} 0x{:08x}", &r[..], r.len());
++                r[0];
++                eprintln!("success");
++
+                 let mut bytes = [0; N];
+                 bytes.copy_from_slice(&r[..N]);
+                 *r = &r[N..];
+diff --git a/src/libstd/sys/unix/fast_thread_local.rs b/src/libstd/sys/unix/fast_thread_local.rs
+index 8730b4d..8d6e3d5 100644
+--- a/src/libstd/sys/unix/fast_thread_local.rs
++++ b/src/libstd/sys/unix/fast_thread_local.rs
+@@ -15,28 +15,8 @@
+     target_os = "emscripten"
+ ))]
+ pub unsafe fn register_dtor(t: *mut u8, dtor: unsafe extern "C" fn(*mut u8)) {
+-    use crate::mem;
+     use crate::sys_common::thread_local::register_dtor_fallback;
+ 
+-    extern "C" {
+-        #[linkage = "extern_weak"]
+-        static __dso_handle: *mut u8;
+-        #[linkage = "extern_weak"]
+-        static __cxa_thread_atexit_impl: *const libc::c_void;
+-    }
+-    if !__cxa_thread_atexit_impl.is_null() {
+-        type F = unsafe extern "C" fn(
+-            dtor: unsafe extern "C" fn(*mut u8),
+-            arg: *mut u8,
+-            dso_handle: *mut u8,
+-        ) -> libc::c_int;
+-        mem::transmute::<*const libc::c_void, F>(__cxa_thread_atexit_impl)(
+-            dtor,
+-            t,
+-            &__dso_handle as *const _ as *mut _,
+-        );
+-        return;
+-    }
+     register_dtor_fallback(t, dtor);
+ }
+ 
+-- 
+2.20.1
+

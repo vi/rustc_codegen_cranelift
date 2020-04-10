@@ -223,7 +223,7 @@ fn data_id_for_static(
         )
         .unwrap();
 
-    if linkage == Linkage::Preemptible {
+    if linkage == Linkage::Preemptible && attrs.linkage != Some(rustc_middle::mir::mono::Linkage::ExternalWeak) {
         if let ty::RawPtr(_) = ty.kind {
         } else {
             tcx.sess.span_fatal(
