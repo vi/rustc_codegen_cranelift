@@ -15,24 +15,6 @@ source config.sh
 rm -r target/out || true
 mkdir -p target/out/clif
 
-echo "[BUILD] mini_core"
-$RUSTC example/mini_core.rs --crate-name mini_core --crate-type lib,dylib
-
-echo "[BUILD] example"
-$RUSTC example/example.rs --crate-type lib
-
-#echo "[JIT] mini_core_hello_world"
-#CG_CLIF_JIT=1 CG_CLIF_JIT_ARGS="abc bcd" $RUSTC --crate-type bin -Cprefer-dynamic example/mini_core_hello_world.rs --cfg jit
-
-echo "[AOT] mini_core_hello_world"
-$RUSTC example/mini_core_hello_world.rs --crate-name mini_core_hello_world --crate-type bin -g
-./target/out/mini_core_hello_world abc bcd
-# (echo "break set -n main"; echo "run"; sleep 1; echo "si -c 10"; sleep 1; echo "frame variable") | lldb -- ./target/out/mini_core_hello_world abc bcd
-
-echo "[AOT] arbitrary_self_types_pointers_and_wrappers"
-$RUSTC example/arbitrary_self_types_pointers_and_wrappers.rs --crate-name arbitrary_self_types_pointers_and_wrappers --crate-type bin
-./target/out/arbitrary_self_types_pointers_and_wrappers
-
 echo "[BUILD] sysroot"
 time ./build_sysroot/build_sysroot.sh
 
