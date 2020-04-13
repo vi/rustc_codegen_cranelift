@@ -201,6 +201,8 @@ impl CodegenBackend for CraneliftCodegenBackend {
         metadata: EncodedMetadata,
         need_metadata_module: bool,
     ) -> Box<dyn Any> {
+        env_logger::init();
+
         let res = driver::codegen_crate(tcx, metadata, need_metadata_module);
 
         rustc_symbol_mangling::test::report_symbol_names(tcx);

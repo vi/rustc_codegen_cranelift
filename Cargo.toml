@@ -9,7 +9,7 @@ crate-type = ["dylib"]
 
 [dependencies]
 # These have to be in sync with each other
-cranelift-codegen = { git = "https://github.com/bytecodealliance/wasmtime/", features = ["unwind"] }
+cranelift-codegen = { git = "https://github.com/bytecodealliance/wasmtime/", features = ["unwind", "all-arch"] }
 cranelift-frontend = { git = "https://github.com/bytecodealliance/wasmtime/" }
 cranelift-module = { git = "https://github.com/bytecodealliance/wasmtime/" }
 cranelift-object = { git = "https://github.com/bytecodealliance/wasmtime/" }
@@ -19,6 +19,7 @@ ar = "0.8.0"
 byteorder = "1.2.7"
 indexmap = "1.0.2"
 cfg-if = "0.1.10"
+env_logger = "0.7.1"
 
 [dependencies.object]
 version = "0.18.0"
@@ -31,14 +32,15 @@ default-features = false
 features = ["write"] # We don't need read support
 
 # Uncomment to use local checkout of cranelift
-#[patch."https://github.com/bytecodealliance/wasmtime/"]
-#cranelift-codegen = { path = "../wasmtime/cranelift/codegen" }
-#cranelift-frontend = { path = "../wasmtime/cranelift/frontend" }
-#cranelift-module = { path = "../wasmtime/cranelift/module" }
-#cranelift-simplejit = { path = "../wasmtime/cranelift/simplejit" }
-#cranelift-object = { path = "../wasmtime/cranelift/object" }
+[patch."https://github.com/bytecodealliance/wasmtime/"]
+cranelift-codegen = { path = "../wasmtime/cranelift/codegen" }
+cranelift-frontend = { path = "../wasmtime/cranelift/frontend" }
+cranelift-module = { path = "../wasmtime/cranelift/module" }
+cranelift-simplejit = { path = "../wasmtime/cranelift/simplejit" }
+cranelift-object = { path = "../wasmtime/cranelift/object" }
 
-#[patch.crates-io]
+[patch.crates-io]
+object = { path = "../object" }
 #gimli = { path = "../" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -53,6 +55,14 @@ opt-level = 3
 # Disabling optimizations for cg_clif itself makes compilation after a change faster.
 opt-level = 0
 
+[profile.dev.package.cranelift-codegen-meta]
+opt-level = 0
+debug = false
+
+[profile.dev.package.syn]
+opt-level = 0
+debug = false
+
 # Disable optimizations and debuginfo of build scripts and some of the heavy build deps, as the
 # execution time of build scripts is so fast that optimizing them slows down the total build time.
 [profile.dev.build-override]
@@ -63,15 +73,7 @@ debug = false
 opt-level = 0
 debug = false
 
-[profile.dev.package.cranelift-codegen-meta]
-opt-level = 0
-debug = false
-
 [profile.release.package.cranelift-codegen-meta]
-opt-level = 0
-debug = false
-
-[profile.dev.package.syn]
 opt-level = 0
 debug = false
 
