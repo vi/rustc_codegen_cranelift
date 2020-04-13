@@ -477,7 +477,7 @@ pub(crate) fn codegen_terminator_call<'tcx>(
     let args = if sig.abi == Abi::RustCall {
         assert_eq!(args.len(), 2, "rust-call abi requires two arguments");
         let self_arg = trans_operand(fx, &args[0]);
-        let pack_arg = trans_operand(fx, &args[1]);
+        let pack_arg = trans_operand_owned(fx, &args[1]);
         let mut args = Vec::new();
         args.push(self_arg);
         match pack_arg.layout().ty.kind {
@@ -491,7 +491,7 @@ pub(crate) fn codegen_terminator_call<'tcx>(
         args
     } else {
         args.into_iter()
-            .map(|arg| trans_operand(fx, arg))
+            .map(|arg| trans_operand_owned(fx, arg))
             .collect::<Vec<_>>()
     };
 
@@ -517,7 +517,7 @@ fn codegen_call_inner<'tcx>(
     span: Span,
     func: Option<&Operand<'tcx>>,
     fn_ty: Ty<'tcx>,
-    args: Vec<CValue<'tcx>>,
+    args: Vec<OwnedCValue<'tcx>>,
     ret_place: Option<CPlace<'tcx>>,
 ) {
     // FIXME mark the current block as cold when calling a `#[cold]` function.

@@ -64,20 +64,50 @@ fn scalar_pair_calculate_b_offset(tcx: TyCtxt<'_>, a_scalar: &Scalar, b_scalar: 
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct CValue<'tcx>(CValueInner, TyAndLayout<'tcx>);
 
+/// An owned value. This is similar to `CValue`, but it allows invalidating the backing memory if
+/// there is any.
+///
+/// This is solely used for call arguments.
+pub(crate) struct OwnedCValue<'tcx>(CValueInner, TyAndLayout<'tcx>);
+
 #[derive(Debug, Copy, Clone)]
 enum CValueInner {
-    ByRef(Pointer, Option<Value>),
+    ByRef {
+        ptr: Pointer,
+        meta: Option<Value>,
+        owned: bool,
+    },
     ByVal(Value),
     ByValPair(Value, Value),
 }
 
 impl<'tcx> CValue<'tcx> {
     pub(crate) fn by_ref(ptr: Pointer, layout: TyAndLayout<'tcx>) -> CValue<'tcx> {
-        CValue(CValueInner::ByRef(ptr, None), layout)
+        CValue(CValueInner::ByRef {
+            ptr,
+            meta: None,
+            owned: false,
+        }, layout)
     }
 
     pub(crate) fn by_ref_unsized(ptr: Pointer, meta: Value, layout: TyAndLayout<'tcx>) -> CValue<'tcx> {
-        CValue(CValueInner::ByRef(ptr, Some(meta)), layout)
+        CValue(CValueInner::ByRef {
+            ptr,
+            meta: Some(meta),
+            owned: false,
+        }, layout)
+    }
+
+    pub(crate) fn by_ref_owned_maybe_unsized(
+        ptr: Pointer,
+        meta: Option<Value>,
+        layout: TyAndLayout<'tcx>,
+    ) -> CValue<'tcx> {
+        CValue(CValueInner::ByRef {
+            ptr,
+            meta,
+            owned: true,
+        }, layout)
     }
 
     pub(crate) fn by_val(value: Value, layout: TyAndLayout<'tcx>) -> CValue<'tcx> {
@@ -92,12 +122,38 @@ impl<'tcx> CValue<'tcx> {
         self.1
     }
 
-    // FIXME remove
-    pub(crate) fn force_stack(self, fx: &mut FunctionCx<'_, 'tcx, impl Backend>) -> (Pointer, Option<Value>) {
+    pub(crate) fn to_owned_copy(
+        self,
+        fx: &mut FunctionCx<'_, 'tcx, impl Backend>,
+    ) -> OwnedCValue<'tcx> {
+        match self.0 {
+            CValueInner::ByRef { .. } => {
+                match &self.1.abi {
+                    Abi::ScalarPair(_, _) => {
+                        let (a, b) = self.load_scalar_pair(fx);
+                        OwnedCValue(CValueInner::ByValPair(a, b), self.layout())
+                    },
+                    _ => {
+                        let cplace = CPlace::new_stack_slot(fx, self.layout());
+                        cplace.write_cvalue(fx, self);
+                        cplace.to_owned_cvalue_move(fx)
+                    }
+                }
+            }
+            inner => OwnedCValue(inner, self.layout())
+        }
+    }
+
+    pub(crate) fn stack_addr_maybe_copy(
+        self,
+        fx: &mut FunctionCx<'_, 'tcx, impl Backend>,
+    ) -> (Pointer, Option<Value>) {
         let layout = self.1;
         match self.0 {
-            CValueInner::ByRef(ptr, meta) => (ptr, meta),
-            CValueInner::ByVal(_) | CValueInner::ByValPair(_, _) => {
+            CValueInner::ByRef { ptr, meta, owned: true } => (ptr, meta),
+            CValueInner::ByRef { ptr: _, meta: _, owned: false }
+            | CValueInner::ByVal(_)
+            | CValueInner::ByValPair(_, _) => {
                 let cplace = CPlace::new_stack_slot(fx, layout);
                 cplace.write_cvalue(fx, self);
                 (cplace.to_ptr(), None)
@@ -107,7 +163,7 @@ impl<'tcx> CValue<'tcx> {
 
     pub(crate) fn try_to_ptr(self) -> Option<(Pointer, Option<Value>)> {
         match self.0 {
-            CValueInner::ByRef(ptr, meta) => Some((ptr, meta)),
+            CValueInner::ByRef { ptr, meta, owned: _ } => Some((ptr, meta)),
             CValueInner::ByVal(_) | CValueInner::ByValPair(_, _) => None,
         }
     }
@@ -116,7 +172,7 @@ impl<'tcx> CValue<'tcx> {
     pub(crate) fn load_scalar(self, fx: &mut FunctionCx<'_, 'tcx, impl Backend>) -> Value {
         let layout = self.1;
         match self.0 {
-            CValueInner::ByRef(ptr, None) => {
+            CValueInner::ByRef { ptr, meta: None, owned: _ } => {
                 let clif_ty = match layout.abi {
                     Abi::Scalar(ref scalar) => scalar_to_clif_type(fx.tcx, scalar.clone()),
                     Abi::Vector { ref element, count } => {
@@ -128,7 +184,7 @@ impl<'tcx> CValue<'tcx> {
                 ptr.load(fx, clif_ty, MemFlags::new())
             }
             CValueInner::ByVal(value) => value,
-            CValueInner::ByRef(_, Some(_)) => bug!("load_scalar for unsized value not allowed"),
+            CValueInner::ByRef { ptr: _, meta: Some(_), owned: _ } => bug!("load_scalar for unsized value not allowed"),
             CValueInner::ByValPair(_, _) => bug!("Please use load_scalar_pair for ByValPair"),
         }
     }
@@ -140,7 +196,7 @@ impl<'tcx> CValue<'tcx> {
     ) -> (Value, Value) {
         let layout = self.1;
         match self.0 {
-            CValueInner::ByRef(ptr, None) => {
+            CValueInner::ByRef { ptr, meta: None, owned: _ } => {
                 let (a_scalar, b_scalar) = match &layout.abi {
                     Abi::ScalarPair(a, b) => (a, b),
                     _ => unreachable!("load_scalar_pair({:?})", self),
@@ -152,7 +208,7 @@ impl<'tcx> CValue<'tcx> {
                 let val2 = ptr.offset(fx, b_offset).load(fx, clif_ty2, MemFlags::new());
                 (val1, val2)
             }
-            CValueInner::ByRef(_, Some(_)) => bug!("load_scalar_pair for unsized value not allowed"),
+            CValueInner::ByRef { ptr: _, meta: Some(_), owned: _ } => bug!("load_scalar_pair for unsized value not allowed"),
             CValueInner::ByVal(_) => bug!("Please use load_scalar for ByVal"),
             CValueInner::ByValPair(val1, val2) => (val1, val2),
         }
@@ -178,11 +234,15 @@ impl<'tcx> CValue<'tcx> {
                     _ => unreachable!("value_field for ByVal with abi {:?}", layout.abi),
                 }
             }
-            CValueInner::ByRef(ptr, None) => {
+            CValueInner::ByRef { ptr, meta: None, owned } => {
                 let (field_ptr, field_layout) = codegen_field(fx, ptr, None, layout, field);
-                CValue::by_ref(field_ptr, field_layout)
+                if !owned {
+                    CValue::by_ref(field_ptr, field_layout)
+                } else {
+                    CValue::by_ref_owned_maybe_unsized(field_ptr, None, field_layout)
+                }
             }
-            CValueInner::ByRef(_, Some(_)) => todo!(),
+            CValueInner::ByRef { ptr: _, meta: Some(_), owned: _ } => todo!(),
             _ => bug!("place_field for {:?}", self),
         }
     }
@@ -248,6 +308,12 @@ impl<'tcx> CValue<'tcx> {
         assert!(matches!(layout.ty.kind, ty::Ref(..) | ty::RawPtr(..) | ty::FnPtr(..)));
         assert_eq!(self.layout().abi, layout.abi);
         CValue(self.0, layout)
+    }
+}
+
+impl<'tcx> OwnedCValue<'tcx> {
+    pub fn layout(&self) -> TyAndLayout<'tcx> {
+        self.1
     }
 }
 
@@ -340,6 +406,44 @@ impl<'tcx> CPlace<'tcx> {
                     CValue::by_ref_unsized(ptr, extra, layout)
                 } else {
                     CValue::by_ref(ptr, layout)
+                }
+            }
+        }
+    }
+
+    pub(crate) fn to_owned_cvalue_move(self, fx: &mut FunctionCx<'_, 'tcx, impl Backend>) -> OwnedCValue<'tcx> {
+        let layout = self.layout();
+        match self.inner {
+            CPlaceInner::Var(var) => {
+                let val = fx.bcx.use_var(mir_var(var));
+                fx.bcx.set_val_label(val, cranelift_codegen::ir::ValueLabel::from_u32(var.as_u32()));
+                OwnedCValue(CValueInner::ByVal(val), layout)
+            }
+            CPlaceInner::Addr(ptr, meta) => {
+                OwnedCValue(CValueInner::ByRef { ptr, meta, owned: true }, layout)
+            }
+        }
+    }
+
+    pub(crate) fn to_owned_cvalue_copy(self, fx: &mut FunctionCx<'_, 'tcx, impl Backend>) -> OwnedCValue<'tcx> {
+        let layout = self.layout();
+        match self.inner {
+            CPlaceInner::Var(var) => {
+                let val = fx.bcx.use_var(mir_var(var));
+                fx.bcx.set_val_label(val, cranelift_codegen::ir::ValueLabel::from_u32(var.as_u32()));
+                OwnedCValue(CValueInner::ByVal(val), layout)
+            }
+            CPlaceInner::Addr(ptr, meta) => {
+                match &layout.abi {
+                    Abi::ScalarPair(_, _) => {
+                        let (a, b) = self.to_cvalue(fx).load_scalar_pair(fx);
+                        OwnedCValue(CValueInner::ByValPair(a, b), layout)
+                    },
+                    _ => {
+                        let cplace = CPlace::new_stack_slot(fx, layout);
+                        cplace.write_cvalue(fx, self.to_cvalue(fx));
+                        cplace.to_owned_cvalue_move(fx)
+                    }
                 }
             }
         }
@@ -514,7 +618,7 @@ impl<'tcx> CPlace<'tcx> {
                     dst_layout.abi
                 );
             }
-            CValueInner::ByRef(from_ptr, None) => {
+            CValueInner::ByRef { ptr: from_ptr, meta: None, owned: _ } => {
                 let from_addr = from_ptr.get_addr(fx);
                 let to_addr = to_ptr.get_addr(fx);
                 let src_layout = from.1;
@@ -531,7 +635,7 @@ impl<'tcx> CPlace<'tcx> {
                     true,
                 );
             }
-            CValueInner::ByRef(_, Some(_)) => todo!(),
+            CValueInner::ByRef { ptr: _, meta: Some(_), owned: _ } => todo!(),
         }
     }
 

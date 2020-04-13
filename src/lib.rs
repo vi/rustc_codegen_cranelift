@@ -103,13 +103,13 @@ mod prelude {
     };
 
     pub(crate) use crate::abi::*;
-    pub(crate) use crate::base::{trans_operand, trans_place};
+    pub(crate) use crate::base::{trans_operand, trans_operand_owned, trans_place};
     pub(crate) use crate::cast::*;
     pub(crate) use crate::common::*;
     pub(crate) use crate::debuginfo::{DebugContext, FunctionDebugContext};
     pub(crate) use crate::pointer::Pointer;
     pub(crate) use crate::trap::*;
-    pub(crate) use crate::value_and_place::{CPlace, CPlaceInner, CValue};
+    pub(crate) use crate::value_and_place::{CPlace, CPlaceInner, CValue, OwnedCValue};
     pub(crate) use crate::CodegenCx;
 
     pub(crate) struct PrintOnPanic<F: Fn() -> String>(pub F);

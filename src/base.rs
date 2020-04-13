@@ -840,3 +840,22 @@ pub(crate) fn trans_operand<'tcx>(
         Operand::Constant(const_) => crate::constant::trans_constant(fx, const_),
     }
 }
+
+pub(crate) fn trans_operand_owned<'tcx>(
+    fx: &mut FunctionCx<'_, 'tcx, impl Backend>,
+    operand: &Operand<'tcx>,
+) -> OwnedCValue<'tcx> {
+    match operand {
+        Operand::Move(place) => {
+            let cplace = trans_place(fx, *place);
+            cplace.to_owned_cvalue_move(fx)
+        }
+        Operand::Copy(place) => {
+            let cplace = trans_place(fx, *place);
+            cplace.to_owned_cvalue_copy(fx)
+        }
+        Operand::Constant(const_) => {
+            crate::constant::trans_constant(fx, const_).to_owned_copy(fx)
+        }
+    }
+}

@@ -109,7 +109,7 @@ pub(super) fn get_pass_mode<'tcx>(tcx: TyCtxt<'tcx>, layout: TyAndLayout<'tcx>) 
 
 pub(super) fn adjust_arg_for_abi<'tcx>(
     fx: &mut FunctionCx<'_, 'tcx, impl Backend>,
-    arg: CValue<'tcx>,
+    arg: OwnedCValue<'tcx>,
 ) -> EmptySinglePair<Value> {
     match get_pass_mode(fx.tcx, arg.layout()) {
         PassMode::NoPass => Empty,
