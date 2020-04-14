@@ -42,10 +42,10 @@ fn codegen_mono_items<'tcx>(
         for &(mono_item, (linkage, visibility)) in &mono_items {
             match mono_item {
                 MonoItem::Fn(instance) => {
-                    let (name, sig) =
-                        get_function_name_and_sig(tcx, cx.module.isa().triple(), instance, false);
-                    let linkage = crate::linkage::get_clif_linkage(mono_item, linkage, visibility);
-                    cx.module.declare_function(&name, linkage, &sig).unwrap();
+                    //let (name, sig) =
+                    //    get_function_name_and_sig(tcx, cx.module.isa().triple(), instance, false);
+                    //let linkage = crate::linkage::get_clif_linkage(mono_item, linkage, visibility);
+                    //cx.module.declare_function(&name, linkage, &sig).unwrap();
                 }
                 MonoItem::Static(_) | MonoItem::GlobalAsm(_) => {}
             }
