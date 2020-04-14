@@ -62,7 +62,7 @@ impl Pointer {
                     fx.bcx.ins().iadd_imm(base_addr, offset)
                 }
             }
-            PointerBase::Stack(_stack_slot) => fx.bcx.ins().iconst(fx.pointer_type, 0),
+            PointerBase::Stack(stack_slot) => fx.bcx.ins().stack_addr(fx.pointer_type, stack_slot, self.offset),
             PointerBase::Dangling(align) => {
                 fx.bcx.ins().iconst(fx.pointer_type, i64::try_from(align.bytes()).unwrap())
             }
@@ -92,7 +92,7 @@ impl Pointer {
             if let Some(new_offset) = base_offset.checked_add(extra_offset){
                 let base_addr = match self.base {
                     PointerBase::Addr(addr) => addr,
-                    PointerBase::Stack(stack_slot) => fx.bcx.ins().iconst(fx.pointer_type, 0),
+                    PointerBase::Stack(stack_slot) => fx.bcx.ins().stack_addr(fx.pointer_type, stack_slot, 0),
                     PointerBase::Dangling(align) => fx.bcx.ins().iconst(fx.pointer_type, i64::try_from(align.bytes()).unwrap()),
                 };
                 let addr = fx.bcx.ins().iadd_imm(base_addr, new_offset);
@@ -117,7 +117,7 @@ impl Pointer {
                 offset: self.offset,
             },
             PointerBase::Stack(stack_slot) => {
-                let base_addr = fx.bcx.ins().iconst(fx.pointer_type, 0);
+                let base_addr = fx.bcx.ins().stack_addr(fx.pointer_type, stack_slot, self.offset);
                 Pointer {
                     base: PointerBase::Addr(fx.bcx.ins().iadd(base_addr, extra_offset)),
                     offset: Offset32::new(0),
@@ -141,8 +141,12 @@ impl Pointer {
     ) -> Value {
         match self.base {
             PointerBase::Addr(base_addr) => fx.bcx.ins().load(ty, flags, base_addr, self.offset),
-            PointerBase::Stack(stack_slot) => {
-                fx.bcx.ins().iconst(ty, 42)
+            PointerBase::Stack(stack_slot) => if ty == types::I128 || ty.is_vector() {
+                // WORKAROUND for stack_load.i128 and stack_load.iXxY not being implemented
+                let base_addr = fx.bcx.ins().stack_addr(fx.pointer_type, stack_slot, 0);
+                fx.bcx.ins().load(ty, flags, base_addr, self.offset)
+            } else {
+                fx.bcx.ins().stack_load(ty, stack_slot, self.offset)
             }
             PointerBase::Dangling(_align) => unreachable!(),
         }
@@ -158,7 +162,16 @@ impl Pointer {
             PointerBase::Addr(base_addr) => {
                 fx.bcx.ins().store(flags, value, base_addr, self.offset);
             }
-            PointerBase::Stack(stack_slot) => {}
+            PointerBase::Stack(stack_slot) => {
+                let val_ty = fx.bcx.func.dfg.value_type(value);
+                if val_ty == types::I128 || val_ty.is_vector() {
+                    // WORKAROUND for stack_store.i128 and stack_store.iXxY not being implemented
+                    let base_addr = fx.bcx.ins().stack_addr(fx.pointer_type, stack_slot, 0);
+                    fx.bcx.ins().store(flags, value, base_addr, self.offset);
+                } else {
+                    fx.bcx.ins().stack_store(value, stack_slot, self.offset);
+                }
+            }
             PointerBase::Dangling(_align) => unreachable!(),
         }
     }
