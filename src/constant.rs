@@ -218,7 +218,7 @@ fn data_id_for_static(
             &*symbol_name,
             linkage,
             is_mutable,
-            attrs.flags.contains(CodegenFnAttrFlags::THREAD_LOCAL),
+            false,//attrs.flags.contains(CodegenFnAttrFlags::THREAD_LOCAL),
             Some(align.try_into().unwrap()),
         )
         .unwrap();

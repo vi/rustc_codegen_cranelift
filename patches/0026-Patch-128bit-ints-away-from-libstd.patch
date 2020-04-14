@@ -1,0 +1,53 @@
+From 8f4472e94579f7e82dd5759c3c0d7a3ba5409d0f Mon Sep 17 00:00:00 2001
+From: bjorn3 <bjorn3@users.noreply.github.com>
+Date: Tue, 14 Apr 2020 16:02:31 +0200
+Subject: [PATCH] Patch 128bit ints away from libstd
+
+---
+ src/libstd/num.rs   | 4 ++--
+ src/libstd/panic.rs | 6 ------
+ 2 files changed, 2 insertions(+), 8 deletions(-)
+
+diff --git a/src/libstd/num.rs b/src/libstd/num.rs
+index de8acf8..6404fb4 100644
+--- a/src/libstd/num.rs
++++ b/src/libstd/num.rs
+@@ -12,9 +12,9 @@ pub use core::num::Wrapping;
+ pub use core::num::{FpCategory, ParseFloatError, ParseIntError, TryFromIntError};
+ 
+ #[stable(feature = "signed_nonzero", since = "1.34.0")]
+-pub use core::num::{NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize};
++pub use core::num::{NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize};
+ #[stable(feature = "nonzero", since = "1.28.0")]
+-pub use core::num::{NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize};
++pub use core::num::{NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize};
+ 
+ #[unstable(
+     feature = "int_error_matching",
+diff --git a/src/libstd/panic.rs b/src/libstd/panic.rs
+index 6ad5519..7408027 100644
+--- a/src/libstd/panic.rs
++++ b/src/libstd/panic.rs
+@@ -253,9 +253,6 @@ impl RefUnwindSafe for atomic::AtomicI32 {}
+ #[cfg(target_has_atomic_load_store = "64")]
+ #[unstable(feature = "integer_atomics", issue = "32976")]
+ impl RefUnwindSafe for atomic::AtomicI64 {}
+-#[cfg(target_has_atomic_load_store = "128")]
+-#[unstable(feature = "integer_atomics", issue = "32976")]
+-impl RefUnwindSafe for atomic::AtomicI128 {}
+ 
+ #[cfg(target_has_atomic_load_store = "ptr")]
+ #[stable(feature = "unwind_safe_atomic_refs", since = "1.14.0")]
+@@ -272,9 +269,6 @@ impl RefUnwindSafe for atomic::AtomicU32 {}
+ #[cfg(target_has_atomic_load_store = "64")]
+ #[unstable(feature = "integer_atomics", issue = "32976")]
+ impl RefUnwindSafe for atomic::AtomicU64 {}
+-#[cfg(target_has_atomic_load_store = "128")]
+-#[unstable(feature = "integer_atomics", issue = "32976")]
+-impl RefUnwindSafe for atomic::AtomicU128 {}
+ 
+ #[cfg(target_has_atomic_load_store = "8")]
+ #[stable(feature = "unwind_safe_atomic_refs", since = "1.14.0")]
+-- 
+2.20.1
+

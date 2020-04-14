@@ -142,6 +142,13 @@ pub(crate) fn trans_fn<'clif, 'tcx, B: Backend + 'static>(
         fx.bcx.append_block_params_for_function_params(fx.block_map[START_BLOCK]);
         fx.bcx.switch_to_block(fx.block_map[START_BLOCK]);
         crate::trap::trap_unreachable(&mut fx, "function has uninhabited argument");
+    } else if fx.mir.local_decls.iter().any(|local_decl| {
+       local_decl.ty.kind == tcx.types.u128.kind || local_decl.ty.kind == tcx.types.i128.kind
+    }) {
+        let start_block = fx.bcx.create_block();
+        fx.bcx.switch_to_block(start_block);
+        fx.bcx.append_block_params_for_function_params(start_block);
+        fx.bcx.ins().trap(TrapCode::UnreachableCodeReached);
     } else {
         tcx.sess.time("codegen clif ir", || {
             tcx.sess.time("codegen prelude", || crate::abi::codegen_fn_prelude(&mut fx, start_block, true));
