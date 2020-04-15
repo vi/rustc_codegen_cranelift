@@ -1,6 +1,6 @@
 #![feature(core_intrinsics, generators, generator_trait, is_sorted)]
 
-use std::arch::x86_64::*;
+//use std::arch::x86_64::*;
 use std::io::Write;
 use std::ops::Generator;
 
@@ -86,15 +86,16 @@ fn main() {
 
     println!("{:?}", std::intrinsics::caller_location());
 
-    unsafe {
-        test_simd();
-    }
+    //unsafe {
+    //    test_simd();
+    //}
 
     Box::pin(move |mut _task_context| {
         yield ();
     }).as_mut().resume(0);
 }
 
+/*
 #[target_feature(enable = "sse2")]
 unsafe fn test_simd() {
     let x = _mm_setzero_si128();
@@ -249,6 +250,7 @@ unsafe fn test_mm_extract_epi8() {
     assert_eq!(r1, 0xFF);
     assert_eq!(r2, 3);
 }
+*/
 
 #[derive(PartialEq)]
 enum LoopState {
