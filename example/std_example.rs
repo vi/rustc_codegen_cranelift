@@ -48,36 +48,36 @@ fn main() {
     assert_eq!(-128i8, (-128i8).saturating_add(-128));
     assert_eq!(127i8, 127i8.saturating_add(1));
 
-    assert_eq!(0b0000000000000000000000000010000010000000000000000000000000000000_0000000000100000000000000000000000001000000000000100000000000000u128.leading_zeros(), 26);
-    assert_eq!(0b0000000000000000000000000010000000000000000000000000000000000000_0000000000000000000000000000000000001000000000000000000010000000u128.trailing_zeros(), 7);
+    //assert_eq!(0b0000000000000000000000000010000010000000000000000000000000000000_0000000000100000000000000000000000001000000000000100000000000000u128.leading_zeros(), 26);
+    //assert_eq!(0b0000000000000000000000000010000000000000000000000000000000000000_0000000000000000000000000000000000001000000000000000000010000000u128.trailing_zeros(), 7);
 
-    let _d = 0i128.checked_div(2i128);
-    let _d = 0u128.checked_div(2u128);
-    assert_eq!(1u128 + 2, 3);
+    //let _d = 0i128.checked_div(2i128);
+    //let _d = 0u128.checked_div(2u128);
+    //assert_eq!(1u128 + 2, 3);
 
-    assert_eq!(0b100010000000000000000000000000000u128 >> 10, 0b10001000000000000000000u128);
-    assert_eq!(0xFEDCBA987654321123456789ABCDEFu128 >> 64, 0xFEDCBA98765432u128);
-    assert_eq!(0xFEDCBA987654321123456789ABCDEFu128 as i128 >> 64, 0xFEDCBA98765432i128);
+    //assert_eq!(0b100010000000000000000000000000000u128 >> 10, 0b10001000000000000000000u128);
+    //assert_eq!(0xFEDCBA987654321123456789ABCDEFu128 >> 64, 0xFEDCBA98765432u128);
+    //assert_eq!(0xFEDCBA987654321123456789ABCDEFu128 as i128 >> 64, 0xFEDCBA98765432i128);
 
-    let tmp = 353985398u128;
-    assert_eq!(tmp * 932490u128, 330087843781020u128);
+    //let tmp = 353985398u128;
+    //assert_eq!(tmp * 932490u128, 330087843781020u128);
 
-    let tmp = -0x1234_5678_9ABC_DEF0i64;
-    assert_eq!(tmp as i128, -0x1234_5678_9ABC_DEF0i128);
+    //let tmp = -0x1234_5678_9ABC_DEF0i64;
+    //assert_eq!(tmp as i128, -0x1234_5678_9ABC_DEF0i128);
 
     // Check that all u/i128 <-> float casts work correctly.
-    let houndred_u128 = 100u128;
-    let houndred_i128 = 100i128;
-    let houndred_f32 = 100.0f32;
-    let houndred_f64 = 100.0f64;
-    assert_eq!(houndred_u128 as f32, 100.0);
-    assert_eq!(houndred_u128 as f64, 100.0);
-    assert_eq!(houndred_f32 as u128, 100);
-    assert_eq!(houndred_f64 as u128, 100);
-    assert_eq!(houndred_i128 as f32, 100.0);
-    assert_eq!(houndred_i128 as f64, 100.0);
-    assert_eq!(houndred_f32 as i128, 100);
-    assert_eq!(houndred_f64 as i128, 100);
+    //let houndred_u128 = 100u128;
+    //let houndred_i128 = 100i128;
+    //let houndred_f32 = 100.0f32;
+    //let houndred_f64 = 100.0f64;
+    //assert_eq!(houndred_u128 as f32, 100.0);
+    //assert_eq!(houndred_u128 as f64, 100.0);
+    //assert_eq!(houndred_f32 as u128, 100);
+    //assert_eq!(houndred_f64 as u128, 100);
+    //assert_eq!(houndred_i128 as f32, 100.0);
+    //assert_eq!(houndred_i128 as f64, 100.0);
+    //assert_eq!(houndred_f32 as i128, 100);
+    //assert_eq!(houndred_f64 as i128, 100);
 
     let _a = 1u32 << 2u8;
 
