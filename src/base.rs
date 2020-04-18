@@ -12,85 +12,6 @@ pub(crate) fn trans_fn<'clif, 'tcx, B: Backend + 'static>(
 
     let mir = tcx.instance_mir(instance.def);
 
-    // Check fn sig for u128 and i128 and replace those functions with a trap.
-    {
-        // FIXME implement u128 and i128 support
-
-        // Check sig for u128 and i128
-        let fn_sig = tcx.normalize_erasing_late_bound_regions(ParamEnv::reveal_all(), &crate::abi::fn_sig_for_fn_abi(tcx, instance));
-
-        struct UI128Visitor<'tcx>(TyCtxt<'tcx>, bool);
-
-        impl<'tcx> rustc_middle::ty::fold::TypeVisitor<'tcx> for UI128Visitor<'tcx> {
-            fn visit_ty(&mut self, t: Ty<'tcx>) -> bool {
-                if t.kind == self.0.types.u128.kind || t.kind == self.0.types.i128.kind {
-                    self.1 = true;
-                    return false; // stop visiting
-                }
-
-                t.super_visit_with(self)
-            }
-        }
-
-        let mut visitor = UI128Visitor(tcx, false);
-        fn_sig.visit_with(&mut visitor);
-
-        //If found replace function with a trap.
-        if visitor.1 {
-            tcx.sess.warn("u128 and i128 are not yet supported. \
-            Functions using these as args will be replaced with a trap.");
-
-            // Declare function with fake signature
-            let sig = Signature {
-                params: vec![],
-                returns: vec![],
-                call_conv: CallConv::Fast,
-            };
-            let name = tcx.symbol_name(instance).name.as_str();
-            let func_id = cx.module.declare_function(&*name, linkage, &sig).unwrap();
-
-            // Create trapping function
-            let mut func = Function::with_name_signature(ExternalName::user(0, 0), sig);
-            let mut func_ctx = FunctionBuilderContext::new();
-            let mut bcx = FunctionBuilder::new(&mut func, &mut func_ctx);
-            let start_ebb = bcx.create_block();
-            bcx.append_block_params_for_function_params(start_ebb);
-            bcx.switch_to_block(start_ebb);
-
-            let mut fx = FunctionCx {
-                tcx,
-                module: cx.module,
-                pointer_type: pointer_ty(tcx),
-
-                instance,
-                mir,
-
-                bcx,
-                block_map: IndexVec::default(),
-                local_map: FxHashMap::default(),
-
-                clif_comments: crate::pretty_clif::CommentWriter::new(tcx, instance),
-                source_info_set: indexmap::IndexSet::new(),
-                caller_location: None,
-                cold_blocks: EntitySet::new(),
-                constants_cx: &mut cx.constants_cx,
-                vtables: &mut cx.vtables,
-            };
-
-            crate::trap::trap_unreachable(&mut fx, "[unimplemented] Called function with u128 or i128 as argument.");
-            fx.bcx.seal_all_blocks();
-            fx.bcx.finalize();
-
-            // Define function
-            cx.cached_context.func = func;
-            cx.module
-                .define_function(func_id, &mut cx.cached_context, &mut cranelift_codegen::binemit::NullTrapSink {})
-                .unwrap();
-            cx.cached_context.clear();
-            return;
-        }
-    }
-
     // Declare function
     let (name, sig) = get_function_name_and_sig(tcx, cx.module.isa().triple(), instance, false);
     let func_id = cx.module.declare_function(&name, linkage, &sig).unwrap();
@@ -142,13 +63,6 @@ pub(crate) fn trans_fn<'clif, 'tcx, B: Backend + 'static>(
         fx.bcx.append_block_params_for_function_params(fx.block_map[START_BLOCK]);
         fx.bcx.switch_to_block(fx.block_map[START_BLOCK]);
         crate::trap::trap_unreachable(&mut fx, "function has uninhabited argument");
-    } else if fx.mir.local_decls.iter().any(|local_decl| {
-       local_decl.ty.kind == tcx.types.u128.kind || local_decl.ty.kind == tcx.types.i128.kind
-    }) {
-        let start_block = fx.bcx.create_block();
-        fx.bcx.switch_to_block(start_block);
-        fx.bcx.append_block_params_for_function_params(start_block);
-        fx.bcx.ins().trap(TrapCode::UnreachableCodeReached);
     } else {
         tcx.sess.time("codegen clif ir", || {
             tcx.sess.time("codegen prelude", || crate::abi::codegen_fn_prelude(&mut fx, start_block, true));

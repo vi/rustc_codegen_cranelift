@@ -498,6 +498,7 @@ pub mod intrinsics {
         pub fn bitreverse<T>(x: T) -> T;
         pub fn bswap<T>(x: T) -> T;
         pub fn write_bytes<T>(dst: *mut T, val: u8, count: usize);
+        pub fn wrapping_add<T>(x: T, y: T) -> T;
     }
 }
 

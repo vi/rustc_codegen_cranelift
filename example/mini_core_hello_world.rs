@@ -126,12 +126,27 @@ unsafe fn zeroed<T>() -> T {
 fn take_f32(_f: f32) {}
 fn take_unique(_u: Unique<()>) {}
 
+fn return_u128(x: u128, y: u128) -> u128 {
+    unsafe { intrinsics::wrapping_add(x, y) }
+}
+
+fn return_u128_pair() -> (u128, u128) {
+    (0, 0)
+}
+
+fn call_return_u128_pair() {
+    return_u128(1, 2);
+    return_u128_pair();
+}
+
 fn main() {
     take_unique(Unique {
         pointer: 0 as *const (),
         _marker: PhantomData,
     });
     take_f32(0.1);
+
+    call_return_u128_pair();
 
     let slice = &[0, 1] as &[i32];
     let slice_ptr = slice as *const [i32] as *const i32;
@@ -150,6 +165,8 @@ fn main() {
         let world: Box<&str> = box "World!\0";
         puts(*world as *const str as *const u8);
         world as Box<dyn SomeTrait>;
+
+        //assert_eq!(intrinsics::bitreverse(0b10101000u8), 0b00010101u8);
 
         assert_eq!(intrinsics::bswap(0xabu8), 0xabu8);
         assert_eq!(intrinsics::bswap(0xddccu16), 0xccddu16);
