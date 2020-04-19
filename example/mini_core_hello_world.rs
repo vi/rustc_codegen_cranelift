@@ -127,7 +127,7 @@ fn take_f32(_f: f32) {}
 fn take_unique(_u: Unique<()>) {}
 
 fn return_u128(x: u128, y: u128) -> u128 {
-    unsafe { intrinsics::wrapping_add(x, y) }
+    0//unsafe { intrinsics::wrapping_add(x, y) }
 }
 
 fn return_u128_pair() -> (u128, u128) {

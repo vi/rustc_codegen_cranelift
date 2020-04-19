@@ -23,7 +23,13 @@ pub(crate) fn maybe_codegen<'tcx>(
             assert!(!checked);
             return None;
         }
-        BinOp::Add | BinOp::Sub if !checked => return None,
+        BinOp::Add | BinOp::Sub if !checked => {
+            return Some(crate::trap::trap_unimplemented_ret_value(
+                fx,
+                lhs.layout(),
+                "AArch backend doesn't support 128bit integers",
+            ));
+        }
         BinOp::Add => {
             let out_ty = fx.tcx.mk_tup([lhs.layout().ty, fx.tcx.types.bool].iter());
             return Some(if is_signed {
