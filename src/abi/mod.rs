@@ -5,7 +5,7 @@ mod returning;
 
 use rustc_target::spec::abi::Abi;
 
-use cranelift_codegen::ir::AbiParam;
+use cranelift_codegen::ir::{AbiParam, ArgumentPurpose};
 
 use self::pass_mode::*;
 use crate::prelude::*;
@@ -123,7 +123,15 @@ fn clif_sig_from_fn_sig<'tcx>(
                     .layout_of(ParamEnv::reveal_all().and(tcx.mk_mut_ptr(tcx.mk_unit())))
                     .unwrap();
             }
-            get_pass_mode(tcx, layout).get_param_ty(tcx).into_iter()
+            let pass_mode = get_pass_mode(tcx, layout);
+            pass_mode.get_param_ty(tcx).into_iter().map(move |ty| {
+                match pass_mode {
+                    PassMode::ByRef { size: Some(size) } if abi == Abi::C => {
+                        AbiParam::special(ty, ArgumentPurpose::StructArgument(u32::try_from(size.bytes()).expect("struct too big to pass on stack")))
+                    }
+                    _ => AbiParam::new(ty)
+                }
+            })
         })
         .flatten();
 
@@ -131,26 +139,26 @@ fn clif_sig_from_fn_sig<'tcx>(
         tcx,
         tcx.layout_of(ParamEnv::reveal_all().and(output)).unwrap(),
     ) {
-        PassMode::NoPass => (inputs.map(AbiParam::new).collect(), vec![]),
+        PassMode::NoPass => (inputs.collect(), vec![]),
         PassMode::ByVal(ret_ty) => (
-            inputs.map(AbiParam::new).collect(),
+            inputs.collect(),
             vec![AbiParam::new(ret_ty)],
         ),
         PassMode::ByValPair(ret_ty_a, ret_ty_b) => (
-            inputs.map(AbiParam::new).collect(),
+            inputs.collect(),
             vec![AbiParam::new(ret_ty_a), AbiParam::new(ret_ty_b)],
         ),
-        PassMode::ByRef { sized: true } => {
+        PassMode::ByRef { size: Some(_) } => {
             (
                 Some(pointer_ty(tcx)) // First param is place to put return val
                     .into_iter()
+                    .map(|ty| AbiParam::special(ty, ArgumentPurpose::StructReturn))
                     .chain(inputs)
-                    .map(AbiParam::new)
                     .collect(),
                 vec![],
             )
         }
-        PassMode::ByRef { sized: false } => todo!(),
+        PassMode::ByRef { size: None } => todo!(),
     };
 
     if requires_caller_location {

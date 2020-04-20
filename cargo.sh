@@ -20,4 +20,4 @@ fi
 cmd=$1
 shift
 
-RUSTFLAGS="-Csave-temps $RUSTFLAGS" cargo +${TOOLCHAIN} $cmd $@
+cargo +${TOOLCHAIN} $cmd $@ #--target $TARGET_TRIPLE $@
