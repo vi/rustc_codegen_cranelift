@@ -81,6 +81,7 @@ fn start<T: Termination + 'static>(
     argc: isize,
     argv: *const *const u8,
 ) -> isize {
+    unsafe { intrinsics::breakpoint(); }
     if argc == 3 {
         unsafe { puts(*argv); }
         unsafe { puts(*((argv as usize + intrinsics::size_of::<*const u8>()) as *const *const u8)); }

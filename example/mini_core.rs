@@ -487,6 +487,7 @@ pub union MaybeUninit<T> {
 pub mod intrinsics {
     extern "rust-intrinsic" {
         pub fn abort() -> !;
+        pub fn breakpoint();
         pub fn size_of<T>() -> usize;
         pub fn size_of_val<T: ?::Sized>(val: *const T) -> usize;
         pub fn min_align_of<T>() -> usize;
