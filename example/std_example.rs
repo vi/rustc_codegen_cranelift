@@ -5,94 +5,13 @@ use std::io::Write;
 use std::ops::Generator;
 
 fn main() {
-    let mutex = std::sync::Mutex::new(());
-    let _guard = mutex.lock().unwrap();
-
-    let _ = ::std::iter::repeat('a' as u8).take(10).collect::<Vec<_>>();
-    let stderr = ::std::io::stderr();
-    let mut stderr = stderr.lock();
-
-    std::thread::spawn(move || {
-        println!("Hello from another thread!");
-    });
-
-    writeln!(stderr, "some {} text", "<unknown>").unwrap();
-
-    let _ = std::process::Command::new("true").env("c", "d").spawn();
-
-    println!("cargo:rustc-link-lib=z");
-
-    static ONCE: std::sync::Once = std::sync::Once::new();
-    ONCE.call_once(|| {});
-
-    let _eq = LoopState::Continue(()) == LoopState::Break(());
-
-    // Make sure ByValPair values with differently sized components are correctly passed
-    map(None::<(u8, Box<Instruction>)>);
-
-    println!("{}", 2.3f32.exp());
-    println!("{}", 2.3f32.exp2());
-    println!("{}", 2.3f32.abs());
-    println!("{}", 2.3f32.sqrt());
-    println!("{}", 2.3f32.floor());
-    println!("{}", 2.3f32.ceil());
-    println!("{}", 2.3f32.min(1.0));
-    println!("{}", 2.3f32.max(1.0));
-    println!("{}", 2.3f32.powi(2));
-    println!("{}", 2.3f32.log2());
-    assert_eq!(2.3f32.copysign(-1.0), -2.3f32);
-    println!("{}", 2.3f32.powf(2.0));
-
-    assert_eq!(-128i8, (-128i8).saturating_sub(1));
-    assert_eq!(127i8, 127i8.saturating_sub(-128));
-    assert_eq!(-128i8, (-128i8).saturating_add(-128));
-    assert_eq!(127i8, 127i8.saturating_add(1));
-
-    assert_eq!(0b0000000000000000000000000010000010000000000000000000000000000000_0000000000100000000000000000000000001000000000000100000000000000u128.leading_zeros(), 26);
-    assert_eq!(0b0000000000000000000000000010000000000000000000000000000000000000_0000000000000000000000000000000000001000000000000000000010000000u128.trailing_zeros(), 7);
-
-    let _d = 0i128.checked_div(2i128);
-    let _d = 0u128.checked_div(2u128);
-    assert_eq!(1u128 + 2, 3);
-
-    assert_eq!(0b100010000000000000000000000000000u128 >> 10, 0b10001000000000000000000u128);
-    assert_eq!(0xFEDCBA987654321123456789ABCDEFu128 >> 64, 0xFEDCBA98765432u128);
-    assert_eq!(0xFEDCBA987654321123456789ABCDEFu128 as i128 >> 64, 0xFEDCBA98765432i128);
-
-    let tmp = 353985398u128;
-    assert_eq!(tmp * 932490u128, 330087843781020u128);
-
-    let tmp = -0x1234_5678_9ABC_DEF0i64;
-    assert_eq!(tmp as i128, -0x1234_5678_9ABC_DEF0i128);
-
-    // Check that all u/i128 <-> float casts work correctly.
-    let houndred_u128 = 100u128;
-    let houndred_i128 = 100i128;
-    let houndred_f32 = 100.0f32;
-    let houndred_f64 = 100.0f64;
-    assert_eq!(houndred_u128 as f32, 100.0);
-    assert_eq!(houndred_u128 as f64, 100.0);
-    assert_eq!(houndred_f32 as u128, 100);
-    assert_eq!(houndred_f64 as u128, 100);
-    assert_eq!(houndred_i128 as f32, 100.0);
-    assert_eq!(houndred_i128 as f64, 100.0);
-    assert_eq!(houndred_f32 as i128, 100);
-    assert_eq!(houndred_f64 as i128, 100);
-
-    let _a = 1u32 << 2u8;
-
-    let empty: [i32; 0] = [];
-    assert!(empty.is_sorted());
-
-    println!("{:?}", std::intrinsics::caller_location());
-
-    unsafe {
-        test_simd();
+    #[derive(Copy, Clone)]
+    enum Nums {
+        NegOne = -1,
     }
 
-    Box::pin(move |mut _task_context| {
-        yield ();
-    }).as_mut().resume(0);
+    let kind = Nums::NegOne;
+    assert_eq!(-1i128, kind as i128);
 }
 
 #[target_feature(enable = "sse2")]
