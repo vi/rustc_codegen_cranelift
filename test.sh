@@ -97,19 +97,20 @@ rustc = "$HOME/.rustup/toolchains/$(cat ../rust-toolchain)-$TARGET_TRIPLE/bin/ru
 EOF
 
 git checkout $(rustc -V | cut -d' ' -f3 | tr -d '(') src/test
-rm -r src/test/ui/{asm-*,abi*,derives/,extern/,panic-runtime/,panics/,unsized-locals/,proc-macro/,thinlto/,simd*,borrowck/,test*,*lto*.rs,linkage-attrs/,unwind-*.rs} || true
+rm -r src/test/ui/{asm-*,abi*,derives/,extern/,panic-runtime/,panics/,unsized-locals/,proc-macro/,thinlto/,simd*,borrowck/,test*,*lto*.rs,linkage*,unwind-*.rs,*macro*.rs,duplicate/} || true
 for test in $(rg --files-with-matches "asm!|catch_unwind|should_panic|lto" src/test/ui); do
   rm $test
 done
+
+for test in $(rg --files-with-matches "//~.*ERROR|// error-pattern:" src/test/ui); do
+  rm $test
+done
+
 rm src/test/ui/backtrace.rs || true # Requires unwinding support, not just backtrace support
 rm src/test/ui/intrinsics/intrinsic-move-val-cleanups.rs || true # ^
-rm src/test/ui/consts/const-size_of-cycle.rs || true # Error file path difference
-rm src/test/ui/impl-trait/impl-generic-mismatch.rs || true # ^
-rm src/test/ui/type_length_limit.rs || true
-rm src/test/ui/issues/issue-50993.rs || true # Target `thumbv7em-none-eabihf` is not supported
-rm src/test/ui/macros/same-sequence-span.rs || true # Proc macro .rustc section not found?
-rm src/test/ui/suggestions/issue-61963.rs || true # ^
-rm src/test/ui/proc_macro.rs || true # Proc macros not yet supported
+rm src/test/ui/rust-2018/suggestions-not-always-applicable.rs || true # ^
+rm -r src/test/ui/rfc-2565-param-attrs/* || true # ^
+rm src/test/ui/underscore-imports/duplicate.rs || true # ^
 
 RUSTC_ARGS="-Zpanic-abort-tests -Zcodegen-backend="$(pwd)"/../target/"$CHANNEL"/librustc_codegen_cranelift."$dylib_ext" --sysroot "$(pwd)"/../build_sysroot/sysroot -Cpanic=abort"
 
