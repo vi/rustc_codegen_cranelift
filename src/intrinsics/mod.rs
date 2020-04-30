@@ -151,6 +151,16 @@ macro validate_atomic_type($fx:ident, $intrinsic:ident, $ty:expr) {
     }
 }
 
+macro validate_simd_type($fx:ident, $intrinsic:ident, $ty:expr) {
+    if !$ty.is_simd() {
+        // FIXME show span of caller
+        $fx.tcx.sess.err(&format!("invalid monomorphization of `{}` intrinsic: expected SIMD input type, found non-SIMD `{}`", $intrinsic, $ty));
+        // Prevent verifier error
+        crate::trap::trap_unreachable($fx, "compilation should not have succeeded");
+        return;
+    }
+}
+
 fn lane_type_and_count<'tcx>(
     tcx: TyCtxt<'tcx>,
     layout: TyAndLayout<'tcx>,
