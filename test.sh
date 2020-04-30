@@ -106,11 +106,18 @@ for test in $(rg --files-with-matches "//~.*ERROR|// error-pattern:" src/test/ui
   rm $test
 done
 
-rm src/test/ui/backtrace.rs || true # Requires unwinding support, not just backtrace support
-rm src/test/ui/intrinsics/intrinsic-move-val-cleanups.rs || true # ^
-rm src/test/ui/rust-2018/suggestions-not-always-applicable.rs || true # ^
-rm -r src/test/ui/rfc-2565-param-attrs/* || true # ^
-rm src/test/ui/underscore-imports/duplicate.rs || true # ^
+rm src/test/ui/backtrace.rs
+rm src/test/ui/intrinsics/intrinsic-move-val-cleanups.rs
+rm src/test/ui/rust-2018/suggestions-not-always-applicable.rs
+rm -r src/test/ui/rfc-2565-param-attrs/*
+rm src/test/ui/underscore-imports/duplicate.rs
+rm src/test/ui/async-await/issues/issue-60674.rs
+rm src/test/ui/array-slice-vec/box-of-array-of-drop-*.rs
+rm src/test/ui/array-slice-vec/slice-panic-*.rs
+rm src/test/ui/array-slice-vec/nested-vec-3.rs
+rm src/test/ui/consts/offset_from_ub.rs # different sysroot source path
+rm src/test/ui/impl-trait/impl-generic-mismatch.rs # same
+rm src/test/ui/issues/issue-21160.rs # same
 
 RUSTC_ARGS="-Zpanic-abort-tests -Zcodegen-backend="$(pwd)"/../target/"$CHANNEL"/librustc_codegen_cranelift."$dylib_ext" --sysroot "$(pwd)"/../build_sysroot/sysroot -Cpanic=abort"
 
