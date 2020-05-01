@@ -46,7 +46,7 @@ $RUN_WRAPPER ./target/out/alloc_example
 
 if [[ "$HOST_TRIPLE" = "$TARGET_TRIPLE" ]]; then
     echo "[JIT] std_example"
-    CG_CLIF_JIT=1 $RUSTC --crate-type bin -Cprefer-dynamic example/std_example.rs --target $HOST_TRIPLE
+    CG_CLIF_JIT=1 $RUSTC --crate-type bin -Cprefer-dynamic example/std_example.rs --target $HOST_TRIPLE -Z force-overflow-checks=off
 else
     echo "[JIT] std_example (skipped)"
 fi
@@ -57,7 +57,7 @@ $RUSTC example/dst-field-align.rs --crate-name dst_field_align --crate-type bin 
 $RUN_WRAPPER ./target/out/dst_field_align || (echo $?; false)
 
 echo "[AOT] std_example"
-$RUSTC example/std_example.rs --crate-type bin --target $TARGET_TRIPLE
+$RUSTC example/std_example.rs --crate-type bin --target $TARGET_TRIPLE -Z force-overflow-checks=off
 $RUN_WRAPPER ./target/out/std_example --target $TARGET_TRIPLE
 
 echo "[AOT] subslice-patterns-const-eval"
