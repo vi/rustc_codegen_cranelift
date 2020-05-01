@@ -129,7 +129,7 @@ pub(crate) fn trans_const_value<'tcx>(
                     let base_addr = match alloc_kind {
                         Some(GlobalAlloc::Memory(alloc)) => {
                             fx.constants_cx.todo.push(TodoItem::Alloc(ptr.alloc_id));
-                            let data_id = data_id_for_alloc_id(fx.module, ptr.alloc_id, alloc.align);
+                            let data_id = data_id_for_alloc_id(fx.module, ptr.alloc_id, alloc.align, alloc.mutability);
                             let local_data_id = fx.module.declare_data_in_func(data_id, &mut fx.bcx.func);
                             #[cfg(debug_assertions)]
                             fx.add_comment(local_data_id, format!("{:?}", ptr.alloc_id));
@@ -179,7 +179,7 @@ fn pointer_for_allocation<'tcx>(
 ) -> crate::pointer::Pointer {
     let alloc_id = fx.tcx.alloc_map.lock().create_memory_alloc(alloc);
     fx.constants_cx.todo.push(TodoItem::Alloc(alloc_id));
-    let data_id = data_id_for_alloc_id(fx.module, alloc_id, alloc.align);
+    let data_id = data_id_for_alloc_id(fx.module, alloc_id, alloc.align, alloc.mutability);
 
     let local_data_id = fx.module.declare_data_in_func(data_id, &mut fx.bcx.func);
     #[cfg(debug_assertions)]
@@ -192,12 +192,13 @@ fn data_id_for_alloc_id<B: Backend>(
     module: &mut Module<B>,
     alloc_id: AllocId,
     align: Align,
+    mutability: rustc_hir::Mutability,
 ) -> DataId {
     module
         .declare_data(
             &format!("__alloc_{}", alloc_id.0),
             Linkage::Local,
-            false,
+            mutability == rustc_hir::Mutability::Mut,
             false,
             Some(align.bytes() as u8),
         )
@@ -278,7 +279,7 @@ fn define_all_allocs(tcx: TyCtxt<'_>, module: &mut Module<impl Backend>, cx: &mu
                     GlobalAlloc::Memory(alloc) => alloc,
                     GlobalAlloc::Function(_) | GlobalAlloc::Static(_) => unreachable!(),
                 };
-                let data_id = data_id_for_alloc_id(module, alloc_id, alloc.align);
+                let data_id = data_id_for_alloc_id(module, alloc_id, alloc.align, alloc.mutability);
                 (data_id, alloc)
             }
             TodoItem::Static(def_id) => {
@@ -341,9 +342,9 @@ fn define_all_allocs(tcx: TyCtxt<'_>, module: &mut Module<impl Backend>, cx: &mu
                     data_ctx.write_function_addr(offset.bytes() as u32, local_func_id);
                     continue;
                 }
-                GlobalAlloc::Memory(_) => {
+                GlobalAlloc::Memory(target_alloc) => {
                     cx.todo.push(TodoItem::Alloc(reloc));
-                    data_id_for_alloc_id(module, reloc, alloc.align)
+                    data_id_for_alloc_id(module, reloc, target_alloc.align, target_alloc.mutability)
                 }
                 GlobalAlloc::Static(def_id) => {
                     if tcx.codegen_fn_attrs(def_id).flags.contains(CodegenFnAttrFlags::THREAD_LOCAL) {
