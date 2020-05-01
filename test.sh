@@ -106,6 +106,7 @@ for test in $(rg --files-with-matches "//~.*ERROR|// error-pattern:" src/test/ui
   rm $test
 done
 
+# these all depend on unwinding support
 rm src/test/ui/backtrace.rs
 rm src/test/ui/intrinsics/intrinsic-move-val-cleanups.rs
 rm src/test/ui/rust-2018/suggestions-not-always-applicable.rs
@@ -125,12 +126,17 @@ rm src/test/ui/structs-enums/unit-like-struct-drop-run.rs
 rm src/test/ui/terminate-in-initializer.rs
 rm src/test/ui/threads-sendsync/task-stderr.rs
 rm src/test/ui/numbers-arithmetic/int-abs-overflow.rs
+rm src/test/ui/drop/drop-trait-enum.rs
+rm src/test/ui/issues/issue-8460.rs
+
+rm src/test/ui/issues/issue-28950.rs # depends on stack size optimizations
 rm src/test/ui/sse2.rs # cpuid not supported, so sse2 not detected
 rm src/test/ui/issues/issue-33992.rs # unsupported linkages
 rm src/test/ui/issues/issue-51947.rs # same
 rm src/test/ui/consts/offset_from_ub.rs # different sysroot source path
 rm src/test/ui/impl-trait/impl-generic-mismatch.rs # same
 rm src/test/ui/issues/issue-21160.rs # same
+rm src/test/ui/issues/issue-28676.rs # depends on C abi passing structs at fixed stack offset
 
 RUSTC_ARGS="-Zpanic-abort-tests -Zcodegen-backend="$(pwd)"/../target/"$CHANNEL"/librustc_codegen_cranelift."$dylib_ext" --sysroot "$(pwd)"/../build_sysroot/sysroot -Cpanic=abort"
 
