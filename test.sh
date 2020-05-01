@@ -115,6 +115,19 @@ rm src/test/ui/async-await/issues/issue-60674.rs
 rm src/test/ui/array-slice-vec/box-of-array-of-drop-*.rs
 rm src/test/ui/array-slice-vec/slice-panic-*.rs
 rm src/test/ui/array-slice-vec/nested-vec-3.rs
+rm src/test/ui/cleanup-rvalue-temp-during-incomplete-alloc.rs
+rm src/test/ui/issues/issue-26655.rs
+rm src/test/ui/issues/issue-29485.rs
+rm src/test/ui/issues/issue-30018-panic.rs
+rm src/test/ui/multi-panic.rs
+rm src/test/ui/sepcomp/sepcomp-unwind.rs
+rm src/test/ui/structs-enums/unit-like-struct-drop-run.rs
+rm src/test/ui/terminate-in-initializer.rs
+rm src/test/ui/threads-sendsync/task-stderr.rs
+rm src/test/ui/numbers-arithmetic/int-abs-overflow.rs
+rm src/test/ui/sse2.rs # cpuid not supported, so sse2 not detected
+rm src/test/ui/issues/issue-33992.rs # unsupported linkages
+rm src/test/ui/issues/issue-51947.rs # same
 rm src/test/ui/consts/offset_from_ub.rs # different sysroot source path
 rm src/test/ui/impl-trait/impl-generic-mismatch.rs # same
 rm src/test/ui/issues/issue-21160.rs # same
