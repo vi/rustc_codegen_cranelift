@@ -81,7 +81,6 @@ fn start<T: Termination + 'static>(
     argc: isize,
     argv: *const *const u8,
 ) -> isize {
-    unsafe { intrinsics::breakpoint(); }
     if argc == 3 {
         unsafe { puts(*argv); }
         unsafe { puts(*((argv as usize + intrinsics::size_of::<*const u8>()) as *const *const u8)); }
@@ -98,7 +97,7 @@ static NUM_REF: &'static u8 = unsafe { &NUM };
 macro_rules! assert {
     ($e:expr) => {
         if !$e {
-            panic(&(stringify!(! $e), file!(), line!(), 0));
+            panic(stringify!(! $e));
         }
     };
 }
@@ -106,7 +105,7 @@ macro_rules! assert {
 macro_rules! assert_eq {
     ($l:expr, $r: expr) => {
         if $l != $r {
-            panic(&(stringify!($l != $r), file!(), line!(), 0));
+            panic(stringify!($l != $r));
         }
     }
 }
@@ -127,16 +126,11 @@ unsafe fn zeroed<T>() -> T {
 fn take_f32(_f: f32) {}
 fn take_unique(_u: Unique<()>) {}
 
-fn return_u128(x: u128, y: u128) -> u128 {
-    0//unsafe { intrinsics::wrapping_add(x, y) }
-}
-
 fn return_u128_pair() -> (u128, u128) {
     (0, 0)
 }
 
 fn call_return_u128_pair() {
-    return_u128(1, 2);
     return_u128_pair();
 }
 
