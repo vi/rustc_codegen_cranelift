@@ -82,9 +82,6 @@ cd rust
 export RUSTFLAGS=
 export CG_CLIF_DISPLAY_CG_TIME=
 
-#git apply ../rust_lang.patch
-
-
 rm config.toml || true
 
 cat > config.toml <<EOF
@@ -97,7 +94,7 @@ rustc = "$HOME/.rustup/toolchains/$(cat ../rust-toolchain)-$TARGET_TRIPLE/bin/ru
 EOF
 
 git checkout $(rustc -V | cut -d' ' -f3 | tr -d '(') src/test
-rm -r src/test/ui/{asm-*,abi*,derives/,extern/,panic-runtime/,panics/,unsized-locals/,proc-macro/,thinlto/,simd*,borrowck/,test*,*lto*.rs,linkage*,unwind-*.rs,*macro*.rs,duplicate/} || true
+rm -r src/test/ui/{asm-*,abi*,derives/,extern/,panic-runtime/,panics/,unsized-locals/,proc-macro/,thinlto/,simd*,borrowck/,test*,*lto*.rs,linkage*,unwind-*.rs,*macro*.rs,duplicate/,symbol-names/} || true
 for test in $(rg --files-with-matches "asm!|catch_unwind|should_panic|lto" src/test/ui); do
   rm $test
 done
