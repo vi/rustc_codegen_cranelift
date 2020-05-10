@@ -103,6 +103,8 @@ for test in $(rg --files-with-matches "//~.*ERROR|// error-pattern:" src/test/ui
   rm $test
 done
 
+git checkout -- src/test/ui/issues/auxiliary/issue-3136-a.rs # contains //~ERROR, but shouldn't be removed
+
 # these all depend on unwinding support
 rm src/test/ui/backtrace.rs
 rm src/test/ui/intrinsics/intrinsic-move-val-cleanups.rs
@@ -136,6 +138,13 @@ rm src/test/ui/impl-trait/impl-generic-mismatch.rs # same
 rm src/test/ui/issues/issue-21160.rs # same
 rm src/test/ui/issues/issue-28676.rs # depends on C abi passing structs at fixed stack offset
 rm src/test/ui/numbers-arithmetic/saturating-float-casts.rs # intrinsic gives different but valid result
+rm src/test/ui/mir/mir_misc_casts.rs # depends on deduplication of constants
+rm src/test/ui/mir/mir_raw_fat_ptr.rs # same
+rm src/test/ui/consts/const-str-ptr.rs # same
+rm src/test/ui/async-await/async-fn-size-moved-locals.rs # -Cpanic=abort shrinks some generator by one byte
+rm src/test/ui/async-await/async-fn-size-uninit-locals.rs # same
+rm src/test/ui/generator/size-moved-locals.rs # same
+rm src/test/ui/fn/dyn-fn-alignment.rs # wants a 256 byte alignment
 
 RUSTC_ARGS="-Zpanic-abort-tests -Zcodegen-backend="$(pwd)"/../target/"$CHANNEL"/librustc_codegen_cranelift."$dylib_ext" --sysroot "$(pwd)"/../build_sysroot/sysroot -Cpanic=abort"
 
