@@ -174,6 +174,8 @@ impl<'a> ArchiveBuilder<'a> for ArArchiveBuilder<'a> {
             BuilderKind::Bsd(ar::Builder::new(File::create(&self.config.dst).unwrap()))
         };
 
+        let has_any_object_files = self.entries.iter().any(|(name, _)| name.ends_with(".o"));
+
         // Add all files
         for (entry_name, entry) in self.entries.into_iter() {
             match entry {
@@ -220,14 +222,16 @@ impl<'a> ArchiveBuilder<'a> for ArArchiveBuilder<'a> {
         // Finalize archive
         std::mem::drop(builder);
 
-        // Run ranlib to be able to link the archive
-        let status = std::process::Command::new("ranlib")
-            .arg(self.config.dst)
-            .status()
-            .expect("Couldn't run ranlib");
+        if has_any_object_files {
+            // Run ranlib to be able to link the archive
+            let status = std::process::Command::new("ranlib")
+                .arg(self.config.dst)
+                .status()
+                .expect("Couldn't run ranlib");
 
-        if !status.success() {
-            self.config.sess.fatal(&format!("Ranlib exited with code {:?}", status.code()));
+            if !status.success() {
+                self.config.sess.fatal(&format!("Ranlib exited with code {:?}", status.code()));
+            }
         }
     }
 }
