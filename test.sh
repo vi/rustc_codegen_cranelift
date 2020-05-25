@@ -18,9 +18,9 @@ mkdir -p target/out/clif
 echo "[BUILD] sysroot"
 time ./build_sysroot/build_sysroot.sh --release
 
-echo "[AOT] alloc_example"
-$RUSTC example/alloc_example.rs --crate-type bin --target $TARGET_TRIPLE
-$RUN_WRAPPER ./target/out/alloc_example
+#echo "[AOT] alloc_example"
+#$RUSTC example/alloc_example.rs --crate-type bin --target $TARGET_TRIPLE
+#$RUN_WRAPPER ./target/out/alloc_example
 
 if [[ "$HOST_TRIPLE" = "$TARGET_TRIPLE" ]]; then
     echo "[JIT] std_example"
@@ -29,10 +29,10 @@ else
     echo "[JIT] std_example (skipped)"
 fi
 
-echo "[AOT] dst_field_align"
-# FIXME Re-add -Zmir-opt-level=2 once rust-lang/rust#67529 is fixed.
-$RUSTC example/dst-field-align.rs --crate-name dst_field_align --crate-type bin --target $TARGET_TRIPLE
-$RUN_WRAPPER ./target/out/dst_field_align || (echo $?; false)
+#echo "[AOT] dst_field_align"
+## FIXME Re-add -Zmir-opt-level=2 once rust-lang/rust#67529 is fixed.
+#$RUSTC example/dst-field-align.rs --crate-name dst_field_align --crate-type bin --target $TARGET_TRIPLE
+#$RUN_WRAPPER ./target/out/dst_field_align || (echo $?; false)
 
 echo "[AOT] std_example"
 $RUSTC example/std_example.rs --crate-type bin --target $TARGET_TRIPLE
