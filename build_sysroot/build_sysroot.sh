@@ -11,8 +11,11 @@ popd >/dev/null
 
 # Cleanup for previous run
 #     v Clean target dir except for build scripts and incremental cache
-rm -r target/*/{debug,release}/{build,deps,examples,libsysroot*,native} || true
+#rm -r target/*/{debug,release}/{build,deps,examples,libsysroot*,native} || true
 rm -r sysroot/ 2>/dev/null || true
+
+mkdir -p sysroot/lib/rustlib/$TARGET_TRIPLE/lib/
+cp $(rustc --print sysroot)/lib/rustlib/$TARGET_TRIPLE/lib/*.o sysroot/lib/rustlib/$TARGET_TRIPLE/lib/
 
 # Build libs
 export RUSTFLAGS="$RUSTFLAGS -Z force-unstable-if-unmarked"
@@ -25,5 +28,4 @@ else
 fi
 
 # Copy files to sysroot
-mkdir -p sysroot/lib/rustlib/$TARGET_TRIPLE/lib/
 cp -r target/$TARGET_TRIPLE/$sysroot_channel/deps/* sysroot/lib/rustlib/$TARGET_TRIPLE/lib/
