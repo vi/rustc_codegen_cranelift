@@ -221,7 +221,7 @@ impl<'a> ArchiveBuilder<'a> for ArArchiveBuilder<'a> {
 
         if self.update_symbols {
             // Run ranlib to be able to link the archive
-            let status = std::process::Command::new("ranlib")
+            let status = std::process::Command::new("x86_64-w64-mingw32-ranlib")
                 .arg(self.config.dst)
                 .status()
                 .expect("Couldn't run ranlib");

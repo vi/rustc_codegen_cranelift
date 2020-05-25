@@ -34,6 +34,8 @@ impl<'tcx> UnwindContext<'tcx> {
     }
 
     pub(crate) fn add_function(&mut self, func_id: FuncId, context: &Context, isa: &dyn TargetIsa) {
+        return;
+
         let unwind_info = if let Some(unwind_info) = context.create_unwind_info(isa).unwrap() {
             unwind_info
         } else {

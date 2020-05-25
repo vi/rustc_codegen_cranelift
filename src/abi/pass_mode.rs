@@ -84,7 +84,12 @@ pub(super) fn get_pass_mode<'tcx>(tcx: TyCtxt<'tcx>, layout: TyAndLayout<'tcx>) 
         match &layout.abi {
             Abi::Uninhabited => PassMode::NoPass,
             Abi::Scalar(scalar) => {
-                PassMode::ByVal(scalar_to_clif_type(tcx, scalar.clone()))
+                let ty = scalar_to_clif_type(tcx, scalar.clone());
+                if ty == types::I128 {
+                    PassMode::ByVal(ty)//PassMode::ByRef { sized: true }
+                } else {
+                    PassMode::ByVal(ty)
+                }
             }
             Abi::ScalarPair(a, b) => {
                 let a = scalar_to_clif_type(tcx, a.clone());
