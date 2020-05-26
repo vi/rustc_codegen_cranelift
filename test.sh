@@ -46,8 +46,10 @@ echo "[AOT] track-caller-attribute"
 $RUSTC example/track-caller-attribute.rs --crate-type bin -Cpanic=abort --target $TARGET_TRIPLE
 $RUN_WRAPPER ./target/out/track-caller-attribute
 
-echo "[BUILD] mod_bench"
-$RUSTC example/mod_bench.rs --crate-type bin --target $TARGET_TRIPLE
+if [[ "$TARGET_TRIPLE" != "x86_64-pc-windows-gnu" ]]; then
+    echo "[BUILD] mod_bench"
+    $RUSTC example/mod_bench.rs --crate-type bin --target $TARGET_TRIPLE
+fi
 
 pushd simple-raytracer
 if [[ "$HOST_TRIPLE" = "$TARGET_TRIPLE" ]]; then

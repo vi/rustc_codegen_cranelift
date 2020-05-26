@@ -12,10 +12,13 @@ test = { path = "./sysroot_src/src/libtest" }
 
 alloc_system = { path = "./alloc_system" }
 
+backtrace-sys = "=0.1.36" # FIXME 0.1.37 gives an gcc internal compiler error when compiling for mingw
+
 [patch.crates-io]
 rustc-std-workspace-core = { path = "./sysroot_src/src/tools/rustc-std-workspace-core" }
 rustc-std-workspace-alloc = { path = "./sysroot_src/src/tools/rustc-std-workspace-alloc" }
 rustc-std-workspace-std = { path = "./sysroot_src/src/tools/rustc-std-workspace-std" }
+compiler_builtins = { path = "./compiler-builtins" }
 
 [profile.dev]
 lto = "off"

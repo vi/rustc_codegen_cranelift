@@ -39,9 +39,9 @@ dependencies = [
 
 [[package]]
 name = "backtrace-sys"
-version = "0.1.37"
+version = "0.1.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18fbebbe1c9d1f383a9cc7e8ccdb471b91c8d024ee9c2ca5b5346121fe8b4399"
+checksum = "78848718ee1255a2485d1309ad9cdecfc2e7d0362dd11c6829364c6b35ae1bc7"
 dependencies = [
  "cc",
  "compiler_builtins",
@@ -68,8 +68,6 @@ dependencies = [
 [[package]]
 name = "compiler_builtins"
 version = "0.1.32"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bc4ac2c824d2bfc612cba57708198547e9a26943af0632aff033e0693074d5c"
 dependencies = [
  "rustc-std-workspace-core",
 ]
@@ -227,6 +225,7 @@ version = "0.0.0"
 dependencies = [
  "alloc",
  "alloc_system",
+ "backtrace-sys",
  "compiler_builtins",
  "core",
  "std",
