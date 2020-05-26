@@ -15,7 +15,9 @@ popd >/dev/null
 rm -r sysroot/ 2>/dev/null || true
 
 mkdir -p sysroot/lib/rustlib/$TARGET_TRIPLE/lib/
-cp $(rustc --print sysroot)/lib/rustlib/$TARGET_TRIPLE/lib/*.o sysroot/lib/rustlib/$TARGET_TRIPLE/lib/
+if [[ "$TARGET_TRIPLE" == "x86_64-pc-windows-gnu" ]]; then
+    cp $(rustc --print sysroot)/lib/rustlib/$TARGET_TRIPLE/lib/*.o sysroot/lib/rustlib/$TARGET_TRIPLE/lib/
+fi
 
 # Build libs
 export RUSTFLAGS="$RUSTFLAGS -Z force-unstable-if-unmarked"
